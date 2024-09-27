@@ -11,35 +11,26 @@ redirect_from:
 
 Education
 ======
-* Ph.D in Version Control Theory, GitHub University, 2018 (expected)
-* M.S. in Jekyll, GitHub University, 2014
-* B.S. in GitHub, GitHub University, 2012
+<!-- * Ph.D in Version Control Theory, GitHub University, 2018 (expected)
+* M.S. in Jekyll, GitHub University, 2014 -->
+* B.S. in Singapore Univeristy of Technology and Design, 2022
 
 Work experience
 ======
-* Spring 2024: Academic Pages Collaborator
-  * Github University
-  * Duties includes: Updates and improvements to template
-  * Supervisor: The Users
+* Fall 2022 to Fall 2024: Research Assistant 
+  * Singapore Univeristy of Technology and Design
+  * Research Topics: Reasoning (Math, Unification).
+  * Supervisor: Lu Wei
 
-* Fall 2015: Research Assistant
-  * Github University
-  * Duties included: Merging pull requests
-  * Supervisor: Professor Hub
-
-* Summer 2015: Research Assistant
-  * Github University
-  * Duties included: Tagging issues
-  * Supervisor: Professor Git
+* Spring 2024 to Fall 2024: Associate Member
+  * SEA AI Lab
+  * Research Topics: Post-training (DPO, SFT-data, Evaluation).
+  * Supervisor: Liu Qian and Dou Longxu
   
 Skills
 ======
-* Skill 1
-* Skill 2
-  * Sub-skill 2.1
-  * Sub-skill 2.2
-  * Sub-skill 2.3
-* Skill 3
+* Coding Frameworks for Research Purpose.
+* Academic Writing.
 
 Publications
 ======
@@ -61,4 +52,4 @@ Teaching
   
 Service and leadership
 ======
-* Currently signed in to 43 different slack teams
+* Manager for StatNLP Lab webpages, servers and weekly meetings (until Fall 2024).
