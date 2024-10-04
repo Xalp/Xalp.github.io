@@ -21,12 +21,12 @@ repository               : "Xalp/Xalp.github.io"
 #               Additional customization can be done by editing /_includes/author-profile.html
 author:
   # Biographic information
-  avatar           : "profile.png"
+  avatar           : "profile_small.png"
   name             : "Jin Ziqi"
   pronouns         : # example: "she/her"  
   bio              : "Research, Photography and Meditation Beginner"
   location         : "Singapore"
-  employer         : "just resigned :D"
+  employer         : # "just resigned :D"
   uri              : # URL
   email            : "xalphinions AT gmail DOT com" 
 
