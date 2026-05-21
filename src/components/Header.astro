@@ -30,7 +30,12 @@ const currentPath = stripLocale(pathWithoutTrailingSlash, locale);
 const isActive = (path: string) => {
   const currentPathArray = currentPath.split("/").filter(p => p.trim());
   const pathArray = path.split("/").filter(p => p.trim());
-  return currentPath === path || currentPathArray[0] === pathArray[0];
+  
+  if (currentPathArray.length < pathArray.length) return false;
+  for (let i = 0; i < pathArray.length; i++) {
+    if (currentPathArray[i] !== pathArray[i]) return false;
+  }
+  return true;
 };
 ---
 

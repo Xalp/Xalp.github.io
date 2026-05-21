@@ -34,7 +34,7 @@ description: "Curriculum Vitae"
 * **[Bytedance](https://www.bytedance.com/)**
   * May 25, 2026 - Present
 
-* **[Miromind](https://miromind.com/)**
+* **[Miromind.ai](https://miromind.ai/)**
   * Aug 2025 - Mar 2026
 
 * **[SEA AI Lab (SAIL)](https://sail.sea.com/)**
