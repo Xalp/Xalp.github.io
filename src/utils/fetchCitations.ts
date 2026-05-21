@@ -25,7 +25,7 @@ export async function getScholarData(): Promise<ScholarData> {
     return cachedScholarData;
   }
 
-  const apiKey = import.meta.env.SERPAPI_KEY;
+  const apiKey = import.meta.env.SERPAPI_KEY || process.env.SERPAPI_KEY;
   const scholarId = "on-f0-IAAAAJ";
   
   if (!apiKey) {
