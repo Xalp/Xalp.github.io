@@ -1,24 +1,17 @@
-# Base image: Ruby with necessary dependencies for Jekyll
-FROM ruby:3.2
+# Base stage for building the static files
+FROM node:lts AS base
+WORKDIR /app
 
-# Install dependencies
-RUN apt-get update && apt-get install -y \
-    build-essential \
-    nodejs \
-    && rm -rf /var/lib/apt/lists/*
+# Install pnpm
+RUN corepack enable && corepack prepare pnpm@latest --activate
 
-# Set the working directory inside the container
-WORKDIR /usr/src/app
+COPY package.json pnpm-lock.yaml ./
+RUN pnpm install --frozen-lockfile
 
-# Copy Gemfile and Gemfile.lock into the container (necessary for `bundle install`)
-COPY Gemfile Gemfile.lock ./
+COPY . .
+RUN pnpm run build
 
-# Install bundler and dependencies
-RUN gem install bundler:2.3.26 && bundle install
-
-# Expose port 4000 for Jekyll server
-EXPOSE 4000
-
-# Command to serve the Jekyll site
-CMD ["bundle", "exec", "jekyll", "serve", "--host", "0.0.0.0", "--watch"]
-
+# Runtime stage for serving the application
+FROM nginx:mainline-alpine-slim AS runtime
+COPY --from=base /app/dist /usr/share/nginx/html
+EXPOSE 80
