@@ -36,13 +36,13 @@ description: "Curriculum Vitae"
 ## Research Experience
 
 * **[Bytedance](https://www.bytedance.com/)**
-  * May 2025 - Present
-
-* **[SEA AI Lab (SAIL)](https://sail.sea.com/)**
-  * Apr 2024 - Present
+  * May 25, 2026 - Present
 
 * **[Miromind](https://miromind.com/)**
-  * Oct 2022 - Oct 2024
+  * Aug 2025 - Mar 2026
+
+* **[SEA AI Lab (SAIL)](https://sail.sea.com/)**
+  * Apr 2024 - Aug 2025
 
 ## Publications
 
