@@ -23,6 +23,8 @@ jobs:
         with:
           node-version: 22
           package-manager: npm
+        env:
+          SERPAPI_KEY: ${{ secrets.SERPAPI_KEY }}
 
   deploy:
     needs: build
