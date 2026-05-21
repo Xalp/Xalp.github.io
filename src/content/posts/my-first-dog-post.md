@@ -1,6 +1,6 @@
 ---
 title: "Training My Dog: Day 1"
-pubDatetime: 2026-05-22T10:00:00Z
+pubDatetime: 2026-05-20T10:00:00Z
 featured: false
 draft: false
 tags:

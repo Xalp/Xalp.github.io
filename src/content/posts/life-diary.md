@@ -1,6 +1,6 @@
 ---
 title: "Morning Coffee & Thoughts"
-pubDatetime: 2026-05-22T08:30:00Z
+pubDatetime: 2026-05-20T08:30:00Z
 featured: false
 draft: false
 tags:
