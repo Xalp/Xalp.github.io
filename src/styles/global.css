@@ -8,6 +8,8 @@
   :root {
     --font-body: 'Inter', sans-serif;
     --font-heading: 'Playfair Display', serif;
+    --font-lobster: 'Lobster', cursive;
+    --font-soviet: 'Russo One', sans-serif;
   }
   
   * {
