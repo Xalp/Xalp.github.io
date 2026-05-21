@@ -29,8 +29,7 @@ const researchPosts = getSortedPosts(posts).filter(post => post.data.tags.includ
               <a href={article.link} target="_blank" rel="noopener noreferrer" class="text-lg font-medium text-skin-accent underline decoration-dashed underline-offset-4 hover:text-skin-accent/80">
                 {article.title}
               </a>
-              <div class="text-sm opacity-80 mt-1">
-                {article.authors}
+              <div class="text-sm opacity-80 mt-1" set:html={article.authors ? article.authors.replace(/(Ziqi Jin|Z Jin|J Ziqi|Jin Ziqi)/gi, "<strong>$1</strong>") : ""}>
               </div>
               <div class="text-sm opacity-80 italic">
                 {article.publication ? `${article.publication} • ` : ""}{article.year}

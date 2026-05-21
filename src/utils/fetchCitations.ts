@@ -42,7 +42,7 @@ export async function getScholarData(): Promise<ScholarData> {
     }
     const data = await res.json();
     cachedScholarData = {
-      citations: data.author?.cited_by ?? 120,
+      citations: data.cited_by?.table?.citations?.all ?? 120,
       articles: data.articles ?? [],
     };
     return cachedScholarData;
