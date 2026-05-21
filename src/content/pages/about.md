@@ -46,7 +46,7 @@ description: "Curriculum Vitae"
 
 ## Publications
 
-* Check out my research insights and publications on the [**Research Tab**](/tags/research).
+* Check out my research insights and publications on the [**Research Tab**](/research).
 
 ## Skills
 

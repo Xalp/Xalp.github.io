@@ -1,0 +1,61 @@
+---
+import Layout from "@/layouts/Layout.astro";
+import Header from "@/components/Header.astro";
+import Breadcrumb from "@/components/Breadcrumb.astro";
+import Main from "@/components/Main.astro";
+import Footer from "@/components/Footer.astro";
+import Card from "@/components/Card.astro";
+import { getCollection } from "astro:content";
+import { getSortedPosts } from "@/utils/getSortedPosts";
+import config from "@/config";
+import { getScholarData } from "@/utils/fetchCitations";
+
+const { articles } = await getScholarData();
+const posts = await getCollection("posts");
+const researchPosts = getSortedPosts(posts).filter(post => post.data.tags.includes("research"));
+---
+
+<Layout title={`Research | ${config.site.title}`}>
+  <Header activeNav="research" />
+  <Breadcrumb />
+  <Main pageTitle="Research">
+    
+    <section class="mb-12">
+      <h2 class="text-2xl font-semibold tracking-wide mb-4">Publications</h2>
+      {articles.length > 0 ? (
+        <ul class="space-y-6">
+          {articles.map((article) => (
+            <li class="border-border border-b pb-4">
+              <a href={article.link} target="_blank" rel="noopener noreferrer" class="text-lg font-medium text-skin-accent underline decoration-dashed underline-offset-4 hover:text-skin-accent/80">
+                {article.title}
+              </a>
+              <div class="text-sm opacity-80 mt-1">
+                {article.authors}
+              </div>
+              <div class="text-sm opacity-80 italic">
+                {article.publication ? `${article.publication} • ` : ""}{article.year}
+              </div>
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <p class="italic opacity-80">Publications will appear here once the Google Scholar API key is configured.</p>
+      )}
+    </section>
+
+    <section>
+      <h2 class="text-2xl font-semibold tracking-wide mb-4">Research Insights</h2>
+      {researchPosts.length > 0 ? (
+        <ul>
+          {researchPosts.map(post => (
+            <Card variant="h3" {...post} />
+          ))}
+        </ul>
+      ) : (
+        <p class="italic opacity-80">No research blogs yet.</p>
+      )}
+    </section>
+
+  </Main>
+  <Footer />
+</Layout>
