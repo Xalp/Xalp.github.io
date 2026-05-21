@@ -41,9 +41,16 @@ export async function getScholarData(): Promise<ScholarData> {
       throw new Error("Failed to fetch citations from SerpApi");
     }
     const data = await res.json();
+    const articles = data.articles ?? [];
+    articles.sort((a: any, b: any) => {
+      const yearA = parseInt(a.year) || 0;
+      const yearB = parseInt(b.year) || 0;
+      return yearB - yearA;
+    });
+
     cachedScholarData = {
       citations: data.cited_by?.table?.citations?.all ?? 120,
-      articles: data.articles ?? [],
+      articles: articles,
     };
     return cachedScholarData;
   } catch (e) {

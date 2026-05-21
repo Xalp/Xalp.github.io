@@ -6,9 +6,8 @@ import { resolveDefaultOgImagePath } from "@/utils/resolveDefaultOgImagePath";
 import { getAssetPath } from "@/utils/withBase";
 import config from "@/config";
 import "@/styles/global.css";
-import { getCitationCount } from "@/utils/fetchCitations";
 
-const citations = await getCitationCount();
+const googleSiteVerification = import.meta.env.PUBLIC_GOOGLE_SITE_VERIFICATION;
 
 type Props = {
   title?: string;
@@ -125,7 +124,7 @@ const rssHref = getRelativeLocaleUrl(
       import "@/scripts/theme";
     </script>
   </body>
-  <script is:inline define:vars={{ citations }}>
+  <script>
     document.addEventListener("astro:page-load", () => {
       document.querySelectorAll(".anti-spider-email").forEach((link) => {
         link.addEventListener("click", (e) => {
@@ -133,9 +132,6 @@ const rssHref = getRelativeLocaleUrl(
           const em = link.getAttribute("data-email");
           if (em) window.location.href = "mailto:" + em;
         });
-      });
-      document.querySelectorAll(".citation-count").forEach((el) => {
-        el.innerText = citations;
       });
     });
   </script>
