@@ -35,48 +35,47 @@ const homePath = getRelativeLocaleUrl(locale, "");
   >
     <section id="hero" class="border-border border-b pt-8 pb-6">
       <h1 class="my-4 inline-block text-4xl font-bold sm:my-8 sm:text-5xl">
-        Mingalaba
+        Hi, I'm Jin Ziqi
       </h1>
-      <a
-        target="_blank"
-        href={getRelativeLocaleUrl(locale, "rss.xml")}
-        class="inline-block"
-        aria-label="RSS Feed"
-        title="RSS Feed"
-      >
-        <IconRss
-          width={20}
-          height={20}
-          class="stroke-accent scale-125 stroke-3 rtl:-rotate-90"
-        />
-        <span class="sr-only">RSS Feed</span>
-      </a>
 
       <p>
-        AstroPaper is a minimal, responsive, accessible and SEO-friendly Astro
-        blog theme. This theme follows best practices and provides accessibility
-        out of the box. Light and dark mode are supported by default. Moreover,
-        additional color schemes can also be configured.
+        I am a 1st Year Ph.D. Student at the College of Computing and Data Science, Nanyang Technological University, supervised by Prof. Aixin Sun. My research focuses on Reasoning and Large Language Models.
       </p>
-      <p class="mt-2">
-        Read the blog posts or check
-        <LinkButton
-          class="hover:text-accent underline decoration-dashed underline-offset-4"
-          href="https://github.com/satnaing/astro-paper#readme"
-        >
-          README
-        </LinkButton> for more info.
-      </p>
-      {
-        socials.length > 0 && (
-          <div class="mt-4 flex max-sm:flex-col sm:items-center">
-            <div class="me-2 mb-1 whitespace-nowrap sm:mb-0">
-              {t.home.socialLinks}:
-            </div>
-            <Socials />
-          </div>
-        )
-      }
+
+      <div class="mt-4 flex max-sm:flex-col sm:items-center gap-6">
+        <a href="/cv.pdf" download class="hover:text-accent underline decoration-dashed underline-offset-4 flex items-center gap-1 font-medium">
+          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+          Download CV
+        </a>
+        <div class="flex items-center gap-1 font-medium">
+          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
+          Citations: 120
+        </div>
+      </div>
+      
+      <div class="mt-4 flex max-sm:flex-col sm:items-center">
+        <div class="me-2 mb-1 whitespace-nowrap sm:mb-0">
+          Connect:
+        </div>
+        <div class="flex flex-wrap items-center gap-1">
+          <a href="#" id="email-link" class="p-2 hover:rotate-6 sm:p-1" title="Email" data-email="ziqi007@e.ntu.edu.sg">
+            <svg class="inline-block size-6 scale-125 fill-transparent stroke-current stroke-2 opacity-90 hover:stroke-accent sm:scale-110" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path><polyline points="22,6 12,13 2,6"></polyline></svg>
+            <span class="sr-only">Email</span>
+          </a>
+          <a href="https://scholar.google.com/citations?user=on-f0-IAAAAJ" class="p-2 hover:rotate-6 sm:p-1" title="Google Scholar">
+            <svg class="inline-block size-6 scale-125 fill-transparent stroke-current stroke-2 opacity-90 hover:stroke-accent sm:scale-110" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2L2 7l10 5 10-5-10-5z"></path><path d="M2 17l10 5 10-5M2 12l10 5 10-5"></path></svg>
+            <span class="sr-only">Google Scholar</span>
+          </a>
+          <a href="tel:+6584589783" class="p-2 hover:rotate-6 sm:p-1" title="Phone">
+            <svg class="inline-block size-6 scale-125 fill-transparent stroke-current stroke-2 opacity-90 hover:stroke-accent sm:scale-110" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"></path></svg>
+            <span class="sr-only">Phone</span>
+          </a>
+          <a href="https://github.com/Xalp" class="p-2 hover:rotate-6 sm:p-1" title="GitHub">
+            <svg class="inline-block size-6 scale-125 fill-transparent stroke-current stroke-2 opacity-90 hover:stroke-accent sm:scale-110" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22"></path></svg>
+            <span class="sr-only">GitHub</span>
+          </a>
+        </div>
+      </div>
     </section>
 
     {
@@ -104,7 +103,7 @@ const homePath = getRelativeLocaleUrl(locale, "");
       recentPosts.length > 0 && (
         <section id="recent-posts" class="pt-12 pb-6">
           <h2 class="text-2xl font-semibold tracking-wide">
-            {t.home.recentPosts}
+            Research
           </h2>
           <ul>
             {recentPosts.slice(0, postsConfig.perIndex).map(data => (
@@ -127,6 +126,15 @@ const homePath = getRelativeLocaleUrl(locale, "");
 
 <script>
   document.addEventListener("astro:page-load", () => {
+    const emailLink = document.getElementById("email-link");
+    if (emailLink) {
+      emailLink.addEventListener("click", (e) => {
+        e.preventDefault();
+        const em = emailLink.getAttribute("data-email");
+        if (em) window.location.href = "mailto:" + em;
+      });
+    }
+
     const indexLayout = (document.querySelector("#main-content") as HTMLElement)
       ?.dataset;
     const baseRoot = import.meta.env.BASE_URL.replace(/\/?$/, "/");

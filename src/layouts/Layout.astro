@@ -122,4 +122,15 @@ const rssHref = getRelativeLocaleUrl(
       import "@/scripts/theme";
     </script>
   </body>
+  <script>
+    document.addEventListener("astro:page-load", () => {
+      document.querySelectorAll(".anti-spider-email").forEach((link) => {
+        link.addEventListener("click", (e) => {
+          e.preventDefault();
+          const em = link.getAttribute("data-email");
+          if (em) window.location.href = "mailto:" + em;
+        });
+      });
+    });
+  </script>
 </html>
