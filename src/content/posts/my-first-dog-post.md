@@ -8,7 +8,7 @@ tags:
 description: "A simple template showing how to write a dog diary entry with Markdown."
 ---
 
-
+![Peyto](/assets/images/8E195141-3BA7-45C0-9897-2F727A335B74.JPG)
 
 ## 🐾 一些简单的规则
 
