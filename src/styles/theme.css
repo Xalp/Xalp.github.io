@@ -9,6 +9,7 @@
   --color-border: var(--border);
   --font-app: var(--font-body);
   --font-heading: var(--font-heading);
+  --font-mono: var(--font-mono);
   --font-lobster: var(--font-lobster);
   --font-soviet: var(--font-soviet);
 }

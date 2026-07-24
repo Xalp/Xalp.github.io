@@ -33,40 +33,41 @@ const homePath = getRelativeLocaleUrl(locale, "");
     data-home-path={homePath}
     class="app-layout"
   >
-    <section id="hero" class="border-border border-b pt-8 pb-6">
-      <h1 class="my-4 inline-block text-4xl font-bold sm:my-8 sm:text-5xl">
-        Hi, I'm Jin Ziqi
-      </h1>
+    <section id="hero" class="hero-x">
+      <div class="hero-grid" aria-hidden="true"></div>
+      <div class="hero-glow" aria-hidden="true"></div>
 
-      <p>
-        I am a 1st Year Ph.D. Student at the College of Computing and Data Science, Nanyang Technological University, supervised by Prof. Aixin Sun. My research focuses on Reasoning and Large Language Models.
-      </p>
-
-      <div class="mt-4 flex max-sm:flex-col sm:items-center gap-6">
-        <a href="/cv.pdf" download class="hover:text-accent underline decoration-dashed underline-offset-4 flex items-center gap-1 font-medium">
-          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
-          Download CV
-        </a>
+      <div class="hero-meta">
+        <span>PH.D. STUDENT · NTU SINGAPORE</span>
+        <span class="hero-status"><i></i>OPEN TO COLLABORATION</span>
       </div>
-      
-      <div class="mt-4 flex max-sm:flex-col sm:items-center">
-        <div class="me-2 mb-1 whitespace-nowrap sm:mb-0">
-          Connect:
+
+      <div class="hero-body">
+        <div class="hero-text">
+          <p class="hero-kicker">// REASONING &amp; LARGE LANGUAGE MODELS</p>
+          <h1 class="hero-title">Jin&nbsp;Ziqi<span class="caret" aria-hidden="true"></span></h1>
+          <p class="hero-lead">
+            1st-year Ph.D. student at the College of Computing and Data Science,
+            Nanyang Technological University, advised by Prof.&nbsp;Aixin&nbsp;Sun.
+            Building models that reason.
+          </p>
+
+          <div class="hero-actions">
+            <a class="chip" href="/cv.pdf" download>[ DOWNLOAD CV ]</a>
+            <a class="chip" id="email-link" href="#" title="Email" data-email="ziqi007@e.ntu.edu.sg">[ EMAIL ]</a>
+            <a class="chip" href="https://github.com/Xalp">[ GITHUB ]</a>
+            <a class="chip" href="https://scholar.google.com/citations?user=on-f0-IAAAAJ">[ SCHOLAR ]</a>
+          </div>
         </div>
-        <div class="flex flex-wrap items-center gap-1">
-          <a href="#" id="email-link" class="p-2 hover:rotate-6 sm:p-1" title="Email" data-email="ziqi007@e.ntu.edu.sg">
-            <svg class="inline-block size-6 scale-125 fill-transparent stroke-current stroke-2 opacity-90 hover:stroke-accent sm:scale-110" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path><polyline points="22,6 12,13 2,6"></polyline></svg>
-            <span class="sr-only">Email</span>
-          </a>
-          <a href="https://scholar.google.com/citations?user=on-f0-IAAAAJ" class="p-2 hover:rotate-6 sm:p-1" title="Google Scholar">
-            <svg class="inline-block size-6 scale-125 fill-transparent stroke-current stroke-2 opacity-90 hover:stroke-accent sm:scale-110" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2L2 7l10 5 10-5-10-5z"></path><path d="M2 17l10 5 10-5M2 12l10 5 10-5"></path></svg>
-            <span class="sr-only">Google Scholar</span>
-          </a>
-          <a href="https://github.com/Xalp" class="p-2 hover:rotate-6 sm:p-1" title="GitHub">
-            <svg class="inline-block size-6 scale-125 fill-transparent stroke-current stroke-2 opacity-90 hover:stroke-accent sm:scale-110" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22"></path></svg>
-            <span class="sr-only">GitHub</span>
-          </a>
-        </div>
+
+        <figure class="hero-photo">
+          <span class="tick tl" aria-hidden="true"></span>
+          <span class="tick tr" aria-hidden="true"></span>
+          <span class="tick bl" aria-hidden="true"></span>
+          <span class="tick br" aria-hidden="true"></span>
+          <img src="/images/profile_small.png" width="255" height="255" alt="Jin Ziqi" loading="eager" />
+          <figcaption>NARA · JP</figcaption>
+        </figure>
       </div>
     </section>
 
@@ -79,9 +80,10 @@ const homePath = getRelativeLocaleUrl(locale, "");
             { "border-border border-b": recentPosts.length > 0 },
           ]}
         >
-          <h2 class="text-2xl font-semibold tracking-wide">
-            {t.home.featured}
-          </h2>
+          <div class="section-head">
+            <span class="section-index">01 / FEATURED</span>
+            <h2 class="section-title">{t.home.featured}</h2>
+          </div>
           <ul>
             {featuredPosts.map(data => (
               <Card variant="h3" {...data} />
@@ -94,9 +96,10 @@ const homePath = getRelativeLocaleUrl(locale, "");
     {
       recentPosts.length > 0 && (
         <section id="recent-posts" class="pt-12 pb-6">
-          <h2 class="text-2xl font-semibold tracking-wide">
-            Blogs
-          </h2>
+          <div class="section-head">
+            <span class="section-index">02 / WRITING</span>
+            <h2 class="section-title">Blogs</h2>
+          </div>
           <ul>
             {recentPosts.slice(0, postsConfig.perIndex).map(data => (
               <Card variant="h3" {...data} />
@@ -135,3 +138,205 @@ const homePath = getRelativeLocaleUrl(locale, "");
     }
   });
 </script>
+
+<style>
+  /* ===== x.ai-inspired hero ===== */
+  .hero-x {
+    position: relative;
+    overflow: hidden;
+    padding: clamp(2.5rem, 8vw, 5rem) 0 clamp(2rem, 5vw, 3.5rem);
+    border-bottom: 1px solid var(--border);
+  }
+
+  /* faint drifting grid */
+  .hero-grid {
+    position: absolute;
+    inset: -2px;
+    background-image:
+      linear-gradient(to right, var(--border) 1px, transparent 1px),
+      linear-gradient(to bottom, var(--border) 1px, transparent 1px);
+    background-size: 44px 44px;
+    opacity: 0.5;
+    -webkit-mask-image: radial-gradient(ellipse 80% 70% at 30% 20%, #000 0%, transparent 75%);
+    mask-image: radial-gradient(ellipse 80% 70% at 30% 20%, #000 0%, transparent 75%);
+    animation: gridDrift 24s linear infinite;
+    pointer-events: none;
+  }
+  @keyframes gridDrift {
+    from { transform: translateY(0); }
+    to   { transform: translateY(-44px); }
+  }
+
+  /* soft accent glow behind the name */
+  .hero-glow {
+    position: absolute;
+    top: -20%;
+    left: -10%;
+    width: 55%;
+    height: 120%;
+    background: radial-gradient(circle, color-mix(in srgb, var(--accent) 26%, transparent) 0%, transparent 65%);
+    filter: blur(30px);
+    opacity: 0.55;
+    pointer-events: none;
+  }
+
+  .hero-meta,
+  .hero-body { position: relative; z-index: 1; }
+
+  .hero-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem 1.25rem;
+    justify-content: space-between;
+    font-family: var(--font-mono);
+    font-size: 0.68rem;
+    letter-spacing: 0.14em;
+    color: var(--muted-foreground);
+    padding-bottom: 1.75rem;
+  }
+  .hero-status { display: inline-flex; align-items: center; gap: 0.5rem; }
+  .hero-status i {
+    width: 7px; height: 7px; border-radius: 999px;
+    background: var(--accent);
+    box-shadow: 0 0 0 0 color-mix(in srgb, var(--accent) 70%, transparent);
+    animation: pulse 2s ease-out infinite;
+  }
+  @keyframes pulse {
+    0%   { box-shadow: 0 0 0 0 color-mix(in srgb, var(--accent) 70%, transparent); }
+    70%  { box-shadow: 0 0 0 7px transparent; }
+    100% { box-shadow: 0 0 0 0 transparent; }
+  }
+
+  .hero-body {
+    display: flex;
+    align-items: center;
+    gap: clamp(1.5rem, 5vw, 3.5rem);
+  }
+  .hero-text { flex: 1 1 auto; min-width: 0; }
+
+  .hero-kicker {
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    letter-spacing: 0.1em;
+    color: var(--accent);
+    margin: 0 0 0.85rem;
+  }
+
+  .hero-title {
+    font-family: var(--font-body);
+    font-weight: 600;
+    font-size: clamp(2.6rem, 9vw, 5.25rem);
+    line-height: 0.95;
+    letter-spacing: -0.03em;
+    margin: 0;
+    color: var(--foreground);
+  }
+  .caret {
+    display: inline-block;
+    width: 0.5ch;
+    height: 0.82em;
+    margin-left: 0.12em;
+    background: var(--accent);
+    transform: translateY(0.06em);
+    animation: blink 1.05s steps(1) infinite;
+  }
+  @keyframes blink { 0%, 50% { opacity: 1; } 50.01%, 100% { opacity: 0; } }
+
+  .hero-lead {
+    margin: 1.35rem 0 0;
+    max-width: 46ch;
+    color: var(--muted-foreground);
+    line-height: 1.6;
+  }
+
+  .hero-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.6rem;
+    margin-top: 1.85rem;
+  }
+  .chip {
+    font-family: var(--font-mono);
+    font-size: 0.72rem;
+    letter-spacing: 0.06em;
+    padding: 0.5rem 0.75rem;
+    border: 1px solid var(--border);
+    color: var(--foreground);
+    background: color-mix(in srgb, var(--muted) 25%, transparent);
+    transition: all 0.22s ease;
+    white-space: nowrap;
+  }
+  .chip:hover {
+    background: var(--accent);
+    color: var(--accent-foreground);
+    border-color: var(--accent);
+    transform: translateY(-2px);
+    text-decoration: none;
+  }
+
+  /* photo panel */
+  .hero-photo {
+    position: relative;
+    flex: 0 0 auto;
+    width: clamp(150px, 26vw, 220px);
+    margin: 0;
+    padding: 8px;
+    border: 1px solid var(--border);
+    background: color-mix(in srgb, var(--muted) 20%, transparent);
+  }
+  .hero-photo img {
+    display: block;
+    width: 100%;
+    height: auto;
+    aspect-ratio: 1 / 1;
+    object-fit: cover;
+    filter: grayscale(1) contrast(1.05);
+    transition: filter 0.4s ease, transform 0.4s ease;
+  }
+  .hero-photo:hover img { filter: grayscale(0) contrast(1); transform: scale(1.02); }
+  .hero-photo figcaption {
+    font-family: var(--font-mono);
+    font-size: 0.6rem;
+    letter-spacing: 0.18em;
+    color: var(--muted-foreground);
+    text-align: right;
+    padding-top: 6px;
+  }
+  .hero-photo .tick {
+    position: absolute;
+    width: 8px; height: 8px;
+    border: 1px solid var(--accent);
+  }
+  .tick.tl { top: -1px; left: -1px; border-right: 0; border-bottom: 0; }
+  .tick.tr { top: -1px; right: -1px; border-left: 0; border-bottom: 0; }
+  .tick.bl { bottom: -1px; left: -1px; border-right: 0; border-top: 0; }
+  .tick.br { bottom: -1px; right: -1px; border-left: 0; border-top: 0; }
+
+  @media (max-width: 640px) {
+    .hero-body { flex-direction: column-reverse; align-items: flex-start; }
+    .hero-photo { width: clamp(130px, 45vw, 180px); }
+  }
+
+  /* ===== section headers ===== */
+  .section-head { margin-bottom: 1.25rem; }
+  .section-index {
+    display: block;
+    font-family: var(--font-mono);
+    font-size: 0.68rem;
+    letter-spacing: 0.16em;
+    color: var(--muted-foreground);
+    margin-bottom: 0.4rem;
+  }
+  .section-title {
+    font-family: var(--font-body);
+    font-weight: 600;
+    font-size: 1.6rem;
+    letter-spacing: -0.01em;
+    margin: 0;
+    color: var(--foreground);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .hero-grid, .caret, .hero-status i { animation: none; }
+  }
+</style>
