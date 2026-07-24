@@ -2,11 +2,11 @@ import { defineAstroPaperConfig } from "./src/types/config";
 
 export default defineAstroPaperConfig({
   site: {
-    url: "https://Xalp.github.io",
+    url: "https://xalp.net",
     title: "Xalp & Peyto's",
     description: "See Through",
     author: "Jin Ziqi",
-    profile: "https://Xalp.github.io",
+    profile: "https://xalp.net",
     ogImage: "default-og.jpg",
     lang: "en",
     timezone: "Asia/Singapore",
