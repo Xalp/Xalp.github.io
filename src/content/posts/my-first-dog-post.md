@@ -5,7 +5,7 @@ featured: false
 draft: false
 tags:
   - dog
-description: "A simple template showing how to write a dog diary entry with Markdown."
+description: "养狗与训练的一些个人经验和规则。"
 ---
 
 ![Peyto](/assets/images/8E195141-3BA7-45C0-9897-2F727A335B74.JPG)
