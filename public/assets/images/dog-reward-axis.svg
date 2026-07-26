@@ -1,0 +1,74 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 300" font-family="ui-sans-serif, system-ui, sans-serif" role="img" aria-label="The reward value axis, from neutral marker to jackpot">
+  <style>
+    :root{
+      --ink:#3A3532; --sub:#7D766E; --accent:#C85A3C; --neutral:#9A9086;
+      --line:#C9BEAE; --track1:#D8CFC1; --track2:#C85A3C; --mono:ui-monospace,'JetBrains Mono',monospace;
+    }
+    @media (prefers-color-scheme: dark){
+      :root{ --ink:#EBE5DF; --sub:#A1A8A4; --accent:#D99441; --neutral:#7E8580; --line:#4A524C; --track1:#39413B; --track2:#D99441; }
+    }
+    .name{ font-size:15px; font-weight:600; fill:var(--ink); }
+    .sub{ font-family:var(--mono); font-size:10.5px; letter-spacing:.04em; fill:var(--sub); }
+    .axlab{ font-family:var(--mono); font-size:11px; letter-spacing:.16em; fill:var(--sub); }
+    .tick{ stroke:var(--line); stroke-width:2; }
+  </style>
+  <defs>
+    <linearGradient id="grad" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="var(--track1)"/>
+      <stop offset="1" stop-color="var(--track2)"/>
+    </linearGradient>
+    <marker id="axh" markerWidth="12" markerHeight="12" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 Z" fill="var(--line)"/></marker>
+  </defs>
+
+  <!-- gradient value track + axis -->
+  <rect x="70" y="158" width="720" height="8" rx="4" fill="url(#grad)"/>
+  <line x1="70" y1="162" x2="808" y2="162" stroke="var(--line)" stroke-width="2" marker-end="url(#axh)"/>
+  <text class="axlab" x="70" y="196" >LOW · COMMUNICATION</text>
+  <text class="axlab" x="790" y="196" text-anchor="end">HIGH · SAVE FOR HARD WINS</text>
+  <text class="axlab" x="440" y="30" text-anchor="middle" fill="var(--accent)">REWARD VALUE  —&gt;</text>
+
+  <!-- markers: x positions along the track -->
+  <!-- 0: neutral mark -->
+  <g>
+    <line class="tick" x1="120" y1="150" x2="120" y2="128"/>
+    <circle cx="120" cy="162" r="5" fill="var(--neutral)"/>
+    <text class="name" x="120" y="118" text-anchor="middle" fill="var(--neutral)">&#8220;oh–oh&#8221;</text>
+    <text class="sub"  x="120" y="228" text-anchor="middle">neutral · not a reward</text>
+    <text class="sub"  x="120" y="242" text-anchor="middle">= reset, try again</text>
+  </g>
+  <!-- 1: soft praise -->
+  <g>
+    <line class="tick" x1="248" y1="174" x2="248" y2="205"/>
+    <circle cx="248" cy="162" r="5" fill="var(--accent)"/>
+    <text class="name" x="248" y="232" text-anchor="middle">soft &#8220;good&#8221;</text>
+    <text class="sub"  x="248" y="248" text-anchor="middle">low voice</text>
+  </g>
+  <!-- 2: loud praise -->
+  <g>
+    <line class="tick" x1="376" y1="150" x2="376" y2="128"/>
+    <circle cx="376" cy="162" r="5" fill="var(--accent)"/>
+    <text class="name" x="376" y="118" text-anchor="middle">loud &#8220;YES!&#8221;</text>
+    <text class="sub"  x="376" y="118" text-anchor="middle" dy="-16">high voice</text>
+  </g>
+  <!-- 3: jerky -->
+  <g>
+    <line class="tick" x1="504" y1="174" x2="504" y2="205"/>
+    <circle cx="504" cy="162" r="5.5" fill="var(--accent)"/>
+    <text class="name" x="504" y="232" text-anchor="middle">jerky</text>
+    <text class="sub"  x="504" y="248" text-anchor="middle">肉干</text>
+  </g>
+  <!-- 4: freeze-dried -->
+  <g>
+    <line class="tick" x1="632" y1="150" x2="632" y2="128"/>
+    <circle cx="632" cy="162" r="6" fill="var(--accent)"/>
+    <text class="name" x="632" y="118" text-anchor="middle">freeze-dried</text>
+    <text class="sub"  x="632" y="118" text-anchor="middle" dy="-16">冻干</text>
+  </g>
+  <!-- 5: jackpot boiled meat -->
+  <g>
+    <line class="tick" x1="760" y1="174" x2="760" y2="205"/>
+    <circle cx="760" cy="162" r="7" fill="var(--accent)"/>
+    <text class="name" x="760" y="232" text-anchor="middle">boiled chicken</text>
+    <text class="sub"  x="760" y="248" text-anchor="middle">水煮肉 · jackpot</text>
+  </g>
+</svg>

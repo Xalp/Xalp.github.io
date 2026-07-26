@@ -47,10 +47,21 @@ const homePath = getRelativeLocaleUrl(locale, "");
           <p class="hero-kicker">// REASONING &amp; LARGE LANGUAGE MODELS</p>
           <h1 class="hero-title">Jin&nbsp;Ziqi<span class="caret" aria-hidden="true"></span></h1>
           <p class="hero-lead">
-            1st-year Ph.D. student at the College of Computing and Data Science,
-            Nanyang Technological University, advised by Prof.&nbsp;Aixin&nbsp;Sun.
-            Building models that reason.
+            Ph.D. student at Nanyang Technological University, advised by
+            Prof.&nbsp;Aixin&nbsp;Sun. I build language models that reason —
+            and probe why they work.
           </p>
+
+          <dl class="hero-cred">
+            <div class="cred">
+              <dt>PREVIOUSLY</dt>
+              <dd>SEA&nbsp;AI&nbsp;Lab · MiroMind · ByteDance</dd>
+            </div>
+            <div class="cred">
+              <dt>SELECTED</dt>
+              <dd>ACL&nbsp;2023 · NAACL&nbsp;2025 · Sailor2</dd>
+            </div>
+          </dl>
 
           <div class="hero-actions">
             <a class="chip" href="/cv.pdf" download>[ DOWNLOAD CV ]</a>
@@ -247,6 +258,36 @@ const homePath = getRelativeLocaleUrl(locale, "");
     max-width: 46ch;
     color: var(--muted-foreground);
     line-height: 1.6;
+  }
+
+  .hero-cred {
+    margin: 1.6rem 0 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.55rem;
+    border-left: 2px solid var(--accent);
+    padding-left: 0.95rem;
+  }
+  .hero-cred .cred {
+    display: flex;
+    gap: 0.85rem;
+    align-items: baseline;
+    flex-wrap: wrap;
+  }
+  .hero-cred dt {
+    flex: 0 0 auto;
+    min-width: 5.5rem;
+    font-family: var(--font-mono);
+    font-size: 0.62rem;
+    letter-spacing: 0.16em;
+    color: var(--muted-foreground);
+    padding-top: 0.1rem;
+  }
+  .hero-cred dd {
+    margin: 0;
+    font-size: 0.92rem;
+    font-weight: 500;
+    color: var(--foreground);
   }
 
   .hero-actions {
