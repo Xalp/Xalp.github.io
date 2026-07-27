@@ -1,0 +1,53 @@
+---
+type Props = {
+  current: "en" | "zh";
+  altUrl: string;
+  class?: string;
+};
+
+const { current, altUrl, class: className } = Astro.props;
+
+const labels: Record<Props["current"], string> = { en: "EN", zh: "中文" };
+const other: Props["current"] = current === "en" ? "zh" : "en";
+---
+
+<div
+  class:list={["lang-toggle", className]}
+  role="group"
+  aria-label="Post language"
+>
+  <span class="lt-pill is-active" aria-current="true">{labels[current]}</span>
+  <a class="lt-pill" href={altUrl} rel="alternate">{labels[other]}</a>
+</div>
+
+<style>
+  .lang-toggle {
+    display: inline-flex;
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    overflow: hidden;
+    font-family: var(--font-mono);
+    font-size: 0.66rem;
+    letter-spacing: 0.04em;
+    line-height: 1;
+  }
+  .lt-pill {
+    padding: 0.34rem 0.66rem;
+    color: var(--muted-foreground);
+    text-decoration: none;
+    transition: all 0.2s ease;
+    white-space: nowrap;
+  }
+  .lt-pill + .lt-pill {
+    border-left: 1px solid var(--border);
+  }
+  .lt-pill.is-active {
+    background: var(--accent);
+    color: var(--accent-foreground);
+  }
+  a.lt-pill:hover {
+    background: color-mix(in srgb, var(--accent) 15%, transparent);
+    color: var(--foreground);
+    text-decoration: none;
+  }
+</style>

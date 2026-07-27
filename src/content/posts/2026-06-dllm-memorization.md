@@ -8,6 +8,8 @@ tags:
   - diffusion-llm
   - memorization
 description: "Same size, same memory ceiling — but the diffusion model needs ~10x the training to reach it, and eventually just can't."
+postId: "dllm-memorization"
+lang: "en"
 ---
 
 **TL;DR — I gave an autoregressive LLM and a masked-diffusion LLM of the *exact same size* the same

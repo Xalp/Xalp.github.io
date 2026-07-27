@@ -2,6 +2,8 @@
 title: "Self-Harmonized Chain of Thought"
 pubDatetime: 2024-02-17T00:00:00.000Z
 description: "Publication in NAACL 2025 (Main Conference)"
+postId: "self-harmonized-cot"
+lang: "en"
 tags:
   - publication
   - conferences

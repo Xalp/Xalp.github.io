@@ -18,6 +18,12 @@ const posts = defineCollection({
       tags: z.array(z.string()).default(["others"]),
       ogImage: image().or(z.string()).optional(),
       description: z.string(),
+      // Bilingual support: `lang` marks the post's language, `postId` links the
+      // two language versions of the same logical post, and `unlisted` keeps the
+      // secondary translation out of all listings while still building its page.
+      lang: z.enum(["en", "zh"]).default("en"),
+      postId: z.string().optional(),
+      unlisted: z.boolean().optional(),
       canonicalURL: z.string().optional(),
       hideEditPost: z.boolean().optional(),
       timezone: z.string().optional(),

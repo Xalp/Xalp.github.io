@@ -6,6 +6,8 @@ draft: false
 tags:
   - dog
 description: "狗不懂道理，只懂后果。把它当成一个强化学习 agent，几乎所有训练问题都会变成同一个问题：你到底在奖励什么、惩罚什么。"
+postId: "dog-rl-agent"
+lang: "zh"
 ---
 
 ![Peyto](/assets/images/8E195141-3BA7-45C0-9897-2F727A335B74.JPG)
