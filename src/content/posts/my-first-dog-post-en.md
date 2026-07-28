@@ -8,7 +8,6 @@ tags:
 description: "A dog doesn't get reasons, only consequences. Treat it like a reinforcement-learning agent and almost every training problem collapses into one: what exactly are you rewarding, and what are you punishing?"
 postId: "dog-rl-agent"
 lang: "en"
-unlisted: true
 ---
 
 ![Peyto](/assets/images/8E195141-3BA7-45C0-9897-2F727A335B74.JPG)

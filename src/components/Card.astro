@@ -10,10 +10,18 @@ type Props = {
 
 const { variant: Heading = "h2", id, data, filePath } = Astro.props;
 
-const { title, description, ...props } = data;
+const { title, description, tags, ...props } = data;
+
+const CATEGORY_KEYS = ["research", "dog", "life"];
+const category = tags.find(tag => CATEGORY_KEYS.includes(tag)) ?? "other";
+const badge = tags[0];
 ---
 
-<li class="my-6 handcrafted-card">
+<li class="my-6 handcrafted-card" data-category={category}>
+  <div class="mb-1 flex items-center gap-2">
+    <span class="post-badge">{badge}</span>
+    <Datetime {...props} />
+  </div>
   <a
     href={getPostUrl(id, filePath, Astro.currentLocale)}
     class:list={[
@@ -26,6 +34,19 @@ const { title, description, ...props } = data;
       {title}
     </Heading>
   </a>
-  <Datetime {...props} />
   <p>{description}</p>
 </li>
+
+<style>
+  .post-badge {
+    font-family: var(--font-mono);
+    font-size: 0.6rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--accent);
+    border: 1px solid color-mix(in srgb, var(--accent) 40%, transparent);
+    border-radius: 999px;
+    padding: 0.12rem 0.5rem;
+    white-space: nowrap;
+  }
+</style>

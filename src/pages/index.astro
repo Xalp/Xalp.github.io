@@ -23,6 +23,21 @@ const sortedPosts = getSortedPosts(posts);
 const featuredPosts = sortedPosts.filter(({ data }) => data.featured);
 const recentPosts = sortedPosts.filter(({ data }) => !data.featured);
 const homePath = getRelativeLocaleUrl(locale, "");
+
+// Homepage "Blogs" section: only personal writing, grouped into three
+// filterable categories. Publications live on the Research tab instead.
+const BLOG_CATEGORIES = [
+  { key: "research", label: "Research" },
+  { key: "dog", label: "Dog" },
+  { key: "life", label: "Life" },
+] as const;
+const catKeys = BLOG_CATEGORIES.map(c => c.key) as readonly string[];
+const blogPosts = recentPosts.filter(p =>
+  p.data.tags.some(tag => catKeys.includes(tag))
+);
+const activeCategories = BLOG_CATEGORIES.filter(c =>
+  blogPosts.some(p => p.data.tags.includes(c.key))
+);
 ---
 
 <Layout>
@@ -44,8 +59,9 @@ const homePath = getRelativeLocaleUrl(locale, "");
 
       <div class="hero-body">
         <div class="hero-text">
-          <p class="hero-kicker">// REASONING &amp; LARGE LANGUAGE MODELS</p>
+          <p class="hero-kicker">all science is math · all models are wrong</p>
           <h1 class="hero-title">Jin&nbsp;Ziqi<span class="caret" aria-hidden="true"></span></h1>
+          <p class="hero-cn">金子琪 <span class="hero-pinyin">/ Jīn Zǐqí /</span></p>
           <p class="hero-lead">
             2nd-year Ph.D. student at Nanyang Technological University, advised
             by Prof.&nbsp;Aixin&nbsp;Sun. I build language models that reason —
@@ -80,7 +96,10 @@ const homePath = getRelativeLocaleUrl(locale, "");
           <span class="tick tr" aria-hidden="true"></span>
           <span class="tick bl" aria-hidden="true"></span>
           <span class="tick br" aria-hidden="true"></span>
-          <img src="/images/profile-desk.jpg" width="255" height="255" alt="Jin Ziqi" loading="eager" />
+          <div class="photo-frame">
+            <img src="/images/profile-desk.jpg" width="255" height="255" alt="Jin Ziqi" loading="eager" />
+            <span class="shine" aria-hidden="true"></span>
+          </div>
           <figcaption>NTU · SG</figcaption>
         </figure>
       </div>
@@ -109,14 +128,28 @@ const homePath = getRelativeLocaleUrl(locale, "");
     }
 
     {
-      recentPosts.length > 0 && (
+      blogPosts.length > 0 && (
         <section id="recent-posts" class="pt-12 pb-6">
-          <div class="section-head">
-            <span class="section-index">02 / WRITING</span>
-            <h2 class="section-title">Blogs</h2>
+          <div class="section-head section-head--row">
+            <div>
+              <span class="section-index">02 / WRITING</span>
+              <h2 class="section-title">Blogs</h2>
+            </div>
+            {activeCategories.length > 0 && (
+              <div class="blog-filter" role="group" aria-label="Filter posts">
+                <button class="filter-chip is-active" data-filter="all">
+                  All
+                </button>
+                {activeCategories.map(c => (
+                  <button class="filter-chip" data-filter={c.key}>
+                    {c.label}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
-          <ul>
-            {recentPosts.slice(0, postsConfig.perIndex).map(data => (
+          <ul id="blog-list">
+            {blogPosts.map(data => (
               <Card variant="h3" {...data} />
             ))}
           </ul>
@@ -151,6 +184,24 @@ const homePath = getRelativeLocaleUrl(locale, "");
     if (indexLayout?.layout) {
       sessionStorage.setItem("backUrl", indexLayout.homePath ?? baseRoot);
     }
+
+    // Blogs category filter
+    const chips = Array.from(
+      document.querySelectorAll<HTMLButtonElement>(".filter-chip")
+    );
+    const items = Array.from(
+      document.querySelectorAll<HTMLLIElement>("#blog-list > li")
+    );
+    chips.forEach(chip => {
+      chip.addEventListener("click", () => {
+        const filter = chip.dataset.filter ?? "all";
+        chips.forEach(c => c.classList.toggle("is-active", c === chip));
+        items.forEach(li => {
+          const show = filter === "all" || li.dataset.category === filter;
+          li.classList.toggle("filtered-out", !show);
+        });
+      });
+    });
   });
 </script>
 
@@ -257,6 +308,21 @@ const homePath = getRelativeLocaleUrl(locale, "");
   }
   @keyframes blink { 0%, 50% { opacity: 1; } 50.01%, 100% { opacity: 0; } }
 
+  .hero-cn {
+    margin: 0.65rem 0 0;
+    font-size: clamp(1.15rem, 3vw, 1.5rem);
+    font-weight: 500;
+    letter-spacing: 0.04em;
+    color: var(--foreground);
+  }
+  .hero-pinyin {
+    font-family: var(--font-mono);
+    font-size: 0.8rem;
+    letter-spacing: 0.02em;
+    color: var(--muted-foreground);
+    margin-left: 0.35rem;
+  }
+
   .hero-lead {
     margin: 1.35rem 0 0;
     max-width: 46ch;
@@ -329,16 +395,42 @@ const homePath = getRelativeLocaleUrl(locale, "");
     border: 1px solid var(--border);
     background: color-mix(in srgb, var(--muted) 20%, transparent);
   }
+  .photo-frame {
+    position: relative;
+    overflow: hidden;
+    line-height: 0;
+  }
   .hero-photo img {
     display: block;
     width: 100%;
     height: auto;
     aspect-ratio: 1 / 1;
     object-fit: cover;
-    filter: grayscale(1) contrast(1.05);
-    transition: filter 0.4s ease, transform 0.4s ease;
+    transition: transform 0.5s ease;
   }
-  .hero-photo:hover img { filter: grayscale(0) contrast(1); transform: scale(1.02); }
+  .hero-photo:hover img { transform: scale(1.04); }
+  /* shine sweep on hover */
+  .photo-frame .shine {
+    position: absolute;
+    top: 0;
+    left: -160%;
+    width: 90%;
+    height: 100%;
+    transform: skewX(-22deg);
+    background: linear-gradient(
+      90deg,
+      transparent 0%,
+      color-mix(in srgb, #fff 55%, transparent) 50%,
+      transparent 100%
+    );
+    pointer-events: none;
+    z-index: 2;
+  }
+  .hero-photo:hover .shine { animation: shineSweep 0.85s ease; }
+  @keyframes shineSweep {
+    from { left: -160%; }
+    to   { left: 160%; }
+  }
   .hero-photo figcaption {
     font-family: var(--font-mono);
     font-size: 0.6rem;
@@ -363,25 +455,74 @@ const homePath = getRelativeLocaleUrl(locale, "");
   }
 
   /* ===== section headers ===== */
-  .section-head { margin-bottom: 1.25rem; }
+  .section-head { margin-bottom: 1.5rem; }
+  .section-head--row {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 1rem;
+  }
   .section-index {
     display: block;
     font-family: var(--font-mono);
     font-size: 0.68rem;
     letter-spacing: 0.16em;
-    color: var(--muted-foreground);
+    color: var(--accent);
     margin-bottom: 0.4rem;
   }
   .section-title {
+    position: relative;
     font-family: var(--font-body);
-    font-weight: 600;
-    font-size: 1.6rem;
+    font-weight: 700;
+    font-size: 1.7rem;
     letter-spacing: -0.01em;
     margin: 0;
-    color: var(--foreground);
+    padding-left: 0.7rem;
+    color: color-mix(in srgb, var(--foreground) 80%, var(--accent));
+  }
+  /* accent bar before the title for a bit more structure */
+  .section-title::before {
+    content: "";
+    position: absolute;
+    left: 0;
+    top: 0.15em;
+    bottom: 0.15em;
+    width: 3px;
+    border-radius: 2px;
+    background: var(--accent);
   }
 
+  /* ===== blog filter ===== */
+  .blog-filter {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+  }
+  .filter-chip {
+    font-family: var(--font-mono);
+    font-size: 0.66rem;
+    letter-spacing: 0.06em;
+    padding: 0.32rem 0.7rem;
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    color: var(--muted-foreground);
+    background: transparent;
+    transition: all 0.2s ease;
+  }
+  .filter-chip:hover {
+    color: var(--foreground);
+    border-color: var(--accent);
+  }
+  .filter-chip.is-active {
+    background: var(--accent);
+    color: var(--accent-foreground);
+    border-color: var(--accent);
+  }
+  /* hidden by filter */
+  #blog-list :global(li.filtered-out) { display: none; }
+
   @media (prefers-reduced-motion: reduce) {
-    .hero-grid, .caret, .hero-status i { animation: none; }
+    .hero-grid, .caret, .hero-status i, .shine { animation: none; }
   }
 </style>

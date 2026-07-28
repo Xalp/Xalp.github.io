@@ -21,13 +21,12 @@ const currentYear = new Date().getFullYear();
     class="border-border flex flex-col items-center justify-between border-t py-6 sm:flex-row-reverse sm:py-4"
   >
     <Socials />
-    <div class="my-2 flex flex-col items-center whitespace-nowrap sm:flex-row">
+    <div
+      class="text-muted-foreground my-2 flex flex-col items-center whitespace-nowrap text-xs sm:flex-row"
+    >
       <span>{t.footer.copyright} &#169; {currentYear}</span>
       <span class="hidden sm:inline">&nbsp;|&nbsp;</span>
       <span>{t.footer.allRightsReserved}</span>
-    </div>
-    <div class="text-muted-foreground mt-4 mb-2 text-center font-mono text-xs tracking-wide opacity-90">
-      all science is math · all models are wrong
     </div>
   </div>
 </footer>
