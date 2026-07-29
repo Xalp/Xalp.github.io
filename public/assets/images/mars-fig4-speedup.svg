@@ -1,0 +1,75 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 420" font-family="ui-sans-serif, system-ui, sans-serif" role="img" aria-label="Wall-clock speedup versus batch size for the old and deferred-KV samplers; both land on a 1.0x AR floor rather than falling through it">
+  <style>
+    :root{
+      --ink:#3A3532; --sub:#7D766E; --accent:#C85A3C; --old:#9A8F80;
+      --line:#C9BEAE; --grid:#E6DFD4; --floor:#4E8D6E; --floorbg:#E9F1EC;
+      --bg:#F9F6F0; --mono:ui-monospace,'JetBrains Mono',monospace;
+    }
+    @media (prefers-color-scheme: dark){
+      :root{ --ink:#EBE5DF; --sub:#A1A8A4; --accent:#D99441; --old:#7E766B;
+        --line:#4A524C; --grid:#333B36; --floor:#6FBF97; --floorbg:#243029; --bg:#1E2320; }
+    }
+    .axis { stroke:var(--line); stroke-width:1.5; }
+    .grid { stroke:var(--grid); stroke-width:1; }
+    .lab  { fill:var(--sub); font-family:var(--mono); font-size:11px; }
+    .title{ fill:var(--ink); font-size:13px; }
+    .val  { font-family:var(--mono); font-size:11.5px; font-weight:700; }
+  </style>
+
+  <rect x="0" y="0" width="760" height="420" fill="var(--bg)"/>
+  <text class="title" x="40" y="30">7B · wall-clock speedup vs batch size</text>
+
+  <!-- region above AR floor shaded -->
+  <rect x="90" y="60" width="610" height="202.2" fill="var(--floorbg)" opacity="0.5"/>
+
+  <!-- y gridlines at 0.5,1.0,1.5,2.0 -->
+  <line class="grid" x1="90" y1="340"   x2="700" y2="340"/>
+  <line class="grid" x1="90" y1="262.2" x2="700" y2="262.2"/>
+  <line class="grid" x1="90" y1="184.4" x2="700" y2="184.4"/>
+  <line class="grid" x1="90" y1="106.7" x2="700" y2="106.7"/>
+  <text class="lab" x="80" y="344" text-anchor="end">0.5×</text>
+  <text class="lab" x="80" y="266" text-anchor="end">1.0×</text>
+  <text class="lab" x="80" y="188" text-anchor="end">1.5×</text>
+  <text class="lab" x="80" y="110" text-anchor="end">2.0×</text>
+
+  <!-- AR floor emphasis -->
+  <line x1="90" y1="262.2" x2="700" y2="262.2" stroke="var(--floor)" stroke-width="1.6" stroke-dasharray="6 4"/>
+  <text class="lab" x="98" y="254" text-anchor="start" fill="var(--floor)">AR FLOOR · reached by construction at W=1</text>
+
+  <!-- axes -->
+  <line class="axis" x1="90" y1="60" x2="90" y2="340"/>
+  <line class="axis" x1="90" y1="340" x2="700" y2="340"/>
+  <text class="lab" x="140" y="362" text-anchor="middle">4</text>
+  <text class="lab" x="270" y="362" text-anchor="middle">8</text>
+  <text class="lab" x="400" y="362" text-anchor="middle">16</text>
+  <text class="lab" x="530" y="362" text-anchor="middle">32</text>
+  <text class="lab" x="660" y="362" text-anchor="middle">64</text>
+  <text class="lab" x="395" y="388" text-anchor="middle" fill="var(--ink)">batch size</text>
+
+  <!-- old sampler -->
+  <polyline points="140,162.7 270,176.7 400,220.2 530,260.7 660,313.6" fill="none" stroke="var(--old)" stroke-width="2.2" stroke-dasharray="5 4"/>
+  <circle cx="140" cy="162.7" r="4" fill="var(--old)"/>
+  <circle cx="270" cy="176.7" r="4" fill="var(--old)"/>
+  <circle cx="400" cy="220.2" r="4" fill="var(--old)"/>
+  <circle cx="530" cy="260.7" r="4" fill="var(--old)"/>
+  <circle cx="660" cy="313.6" r="4" fill="var(--old)"/>
+
+  <!-- deferred-KV sampler -->
+  <polyline points="140,81.8 270,97.3 400,153.3 530,235.8 660,262.2" fill="none" stroke="var(--accent)" stroke-width="2.6"/>
+  <circle cx="140" cy="81.8"  r="4.5" fill="var(--accent)"/>
+  <circle cx="270" cy="97.3"  r="4.5" fill="var(--accent)"/>
+  <circle cx="400" cy="153.3" r="4.5" fill="var(--accent)"/>
+  <circle cx="530" cy="235.8" r="4.5" fill="var(--accent)"/>
+  <circle cx="660" cy="262.2" r="4.5" fill="var(--accent)"/>
+  <text class="val" x="140" y="72" text-anchor="middle" fill="var(--accent)">2.16×</text>
+  <text class="val" x="400" y="144" text-anchor="middle" fill="var(--accent)">1.70×</text>
+  <text class="val" x="656" y="282" text-anchor="middle" fill="var(--accent)">1.00×</text>
+
+  <!-- legend -->
+  <g transform="translate(300,404)">
+    <line x1="0" y1="-4" x2="26" y2="-4" stroke="var(--accent)" stroke-width="2.6"/>
+    <text class="lab" x="32" y="0" fill="var(--ink)">deferred-KV sampler</text>
+    <line x1="185" y1="-4" x2="211" y2="-4" stroke="var(--old)" stroke-width="2.2" stroke-dasharray="5 4"/>
+    <text class="lab" x="217" y="0" fill="var(--ink)">paper's sampler</text>
+  </g>
+</svg>

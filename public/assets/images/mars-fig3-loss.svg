@@ -1,0 +1,67 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 420" font-family="ui-sans-serif, system-ui, sans-serif" role="img" aria-label="Six-benchmark average versus block size: with the AR loss the curve is flat near 30; without it, it slides from 28.0 to 21.7">
+  <style>
+    :root{
+      --ink:#3A3532; --sub:#7D766E; --accent:#C85A3C; --keep:#4E8D6E;
+      --line:#C9BEAE; --grid:#E6DFD4; --bg:#F9F6F0; --mono:ui-monospace,'JetBrains Mono',monospace;
+    }
+    @media (prefers-color-scheme: dark){
+      :root{ --ink:#EBE5DF; --sub:#A1A8A4; --accent:#D99441; --keep:#6FBF97;
+        --line:#4A524C; --grid:#333B36; --bg:#1E2320; }
+    }
+    .axis { stroke:var(--line); stroke-width:1.5; }
+    .grid { stroke:var(--grid); stroke-width:1; }
+    .lab  { fill:var(--sub); font-family:var(--mono); font-size:11px; }
+    .title{ fill:var(--ink); font-size:13px; }
+    .val  { font-family:var(--mono); font-size:12px; font-weight:700; }
+  </style>
+
+  <rect x="0" y="0" width="720" height="420" fill="var(--bg)"/>
+  <text class="title" x="40" y="30">0.5B · six-benchmark average vs block size B</text>
+
+  <!-- gridlines + y labels (20,25,30) -->
+  <line class="grid" x1="90" y1="85.5"  x2="660" y2="85.5"/>
+  <line class="grid" x1="90" y1="212.7" x2="660" y2="212.7"/>
+  <line class="grid" x1="90" y1="340"   x2="660" y2="340"/>
+  <text class="lab" x="80" y="90"  text-anchor="end">30</text>
+  <text class="lab" x="80" y="217" text-anchor="end">25</text>
+  <text class="lab" x="80" y="344" text-anchor="end">20</text>
+
+  <!-- axes -->
+  <line class="axis" x1="90" y1="60" x2="90" y2="340"/>
+  <line class="axis" x1="90" y1="340" x2="660" y2="340"/>
+  <text class="lab" x="170" y="362" text-anchor="middle">B=4</text>
+  <text class="lab" x="375" y="362" text-anchor="middle">B=8</text>
+  <text class="lab" x="580" y="362" text-anchor="middle">B=16</text>
+
+  <!-- WITHOUT the AR loss (declining) -->
+  <polyline points="170,136.4 375,200 580,296.7" fill="none" stroke="var(--accent)" stroke-width="2.5"/>
+  <circle cx="170" cy="136.4" r="4.5" fill="var(--accent)"/>
+  <circle cx="375" cy="200"   r="4.5" fill="var(--accent)"/>
+  <circle cx="580" cy="296.7" r="4.5" fill="var(--accent)"/>
+  <text class="val" x="170" y="126" text-anchor="middle" fill="var(--accent)">28.0</text>
+  <text class="val" x="375" y="190" text-anchor="middle" fill="var(--accent)">25.5</text>
+  <text class="val" x="580" y="316" text-anchor="middle" fill="var(--accent)">21.7</text>
+
+  <!-- WITH the AR loss (flat) -->
+  <polyline points="170,82.9 375,93.1 580,82.9" fill="none" stroke="var(--keep)" stroke-width="2.5"/>
+  <circle cx="170" cy="82.9" r="4.5" fill="var(--keep)"/>
+  <circle cx="375" cy="93.1" r="4.5" fill="var(--keep)"/>
+  <circle cx="580" cy="82.9" r="4.5" fill="var(--keep)"/>
+  <text class="val" x="170" y="74" text-anchor="middle" fill="var(--keep)">30.1</text>
+  <text class="val" x="580" y="74" text-anchor="middle" fill="var(--keep)">30.1</text>
+
+  <!-- legend -->
+  <g transform="translate(360,392)">
+    <line x1="0" y1="-4" x2="26" y2="-4" stroke="var(--keep)" stroke-width="2.5"/>
+    <text class="lab" x="32" y="0" fill="var(--ink)">with the free AR loss</text>
+    <line x1="200" y1="-4" x2="226" y2="-4" stroke="var(--accent)" stroke-width="2.5"/>
+    <text class="lab" x="232" y="0" fill="var(--ink)">without it</text>
+  </g>
+
+  <!-- 7B callout -->
+  <g transform="translate(430,150)">
+    <rect x="0" y="0" width="215" height="58" rx="9" fill="none" stroke="var(--accent)" stroke-width="1.2" stroke-dasharray="4 3"/>
+    <text class="lab" x="14" y="24" fill="var(--accent)">7B, block-16, GSM8K</text>
+    <text class="val" x="14" y="45" fill="var(--ink)" font-size="15">75.3 → 31.5 without it</text>
+  </g>
+</svg>

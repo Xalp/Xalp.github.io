@@ -1,0 +1,78 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 340" font-family="ui-sans-serif, system-ui, sans-serif" role="img" aria-label="Converting AR to block-diffusion changes four things; MARS keeps three aligned with AR and pays only for masking">
+  <style>
+    :root{
+      --ink:#3A3532; --sub:#7D766E; --accent:#C85A3C; --keep:#4E8D6E;
+      --line:#C9BEAE; --panel:#FFFFFF; --stroke:#E1D9CD; --bg:#F9F6F0;
+      --keepbg:#E9F1EC; --paybg:#F7E7DD; --mono:ui-monospace,'JetBrains Mono',monospace;
+    }
+    @media (prefers-color-scheme: dark){
+      :root{ --ink:#EBE5DF; --sub:#A1A8A4; --accent:#D99441; --keep:#6FBF97;
+        --line:#4A524C; --panel:#262C28; --stroke:#3E4641; --bg:#1E2320;
+        --keepbg:#243029; --paybg:#33291F; }
+    }
+    .idx  { font-family:var(--mono); font-size:11px; letter-spacing:.1em; }
+    .name { fill:var(--ink); font-size:14px; font-weight:600; }
+    .conv { fill:var(--sub); font-size:11.5px; }
+    .tag  { font-family:var(--mono); font-size:10px; letter-spacing:.08em; }
+  </style>
+
+  <rect x="0" y="0" width="800" height="340" fill="var(--bg)"/>
+  <text class="conv" x="30" y="34" font-size="13" fill="var(--ink)">Converting an AR model to block-diffusion changes four things at once:</text>
+
+  <!-- helper: each column -->
+  <!-- Col 1: masking (PAY) -->
+  <g transform="translate(30,60)">
+    <rect x="0" y="0" width="178" height="230" rx="12" fill="var(--paybg)" stroke="var(--accent)" stroke-width="1.5"/>
+    <text class="idx" x="16" y="30" fill="var(--accent)">GAP 1</text>
+    <text class="name" x="16" y="54">Token masking</text>
+    <text class="conv" x="16" y="82">real tokens</text>
+    <text class="conv" x="16" y="100" fill="var(--accent)">↓</text>
+    <text class="conv" x="16" y="118">[MASK] placeholders</text>
+    <line x1="16" y1="150" x2="162" y2="150" stroke="var(--stroke)"/>
+    <text class="tag" x="16" y="176" fill="var(--accent)">● UNAVOIDABLE</text>
+    <text class="conv" x="16" y="198" font-size="11">inherent to emitting</text>
+    <text class="conv" x="16" y="214" font-size="11">multiple tokens / pass</text>
+  </g>
+
+  <!-- Col 2: attention (KEEP) -->
+  <g transform="translate(220,60)">
+    <rect x="0" y="0" width="178" height="230" rx="12" fill="var(--keepbg)" stroke="var(--keep)" stroke-width="1.5"/>
+    <text class="idx" x="16" y="30" fill="var(--keep)">GAP 2</text>
+    <text class="name" x="16" y="54">Attention</text>
+    <text class="conv" x="16" y="82">causal</text>
+    <text class="conv" x="16" y="100" fill="var(--sub)">↓ diffusion wants</text>
+    <text class="conv" x="16" y="118" style="text-decoration:line-through">bidirectional</text>
+    <line x1="16" y1="150" x2="162" y2="150" stroke="var(--stroke)"/>
+    <text class="tag" x="16" y="176" fill="var(--keep)">✓ KEEP AR SIDE</text>
+    <text class="conv" x="16" y="198" font-size="11">preserves every</text>
+    <text class="conv" x="16" y="214" font-size="11">head's causal structure</text>
+  </g>
+
+  <!-- Col 3: logit alignment (KEEP) -->
+  <g transform="translate(410,60)">
+    <rect x="0" y="0" width="178" height="230" rx="12" fill="var(--keepbg)" stroke="var(--keep)" stroke-width="1.5"/>
+    <text class="idx" x="16" y="30" fill="var(--keep)">GAP 3</text>
+    <text class="name" x="16" y="54">Logit alignment</text>
+    <text class="conv" x="16" y="82">i predicts i+1</text>
+    <text class="conv" x="16" y="100" fill="var(--sub)">↓ diffusion wants</text>
+    <text class="conv" x="16" y="118" style="text-decoration:line-through">i predicts i</text>
+    <line x1="16" y1="150" x2="162" y2="150" stroke="var(--stroke)"/>
+    <text class="tag" x="16" y="176" fill="var(--keep)">✓ KEEP AR SIDE</text>
+    <text class="conv" x="16" y="198" font-size="11">keeps the output</text>
+    <text class="conv" x="16" y="214" font-size="11">head's calibration</text>
+  </g>
+
+  <!-- Col 4: generation order (KEEP) -->
+  <g transform="translate(600,60)">
+    <rect x="0" y="0" width="178" height="230" rx="12" fill="var(--keepbg)" stroke="var(--keep)" stroke-width="1.5"/>
+    <text class="idx" x="16" y="30" fill="var(--keep)">GAP 4</text>
+    <text class="name" x="16" y="54">Generation order</text>
+    <text class="conv" x="16" y="82">left to right</text>
+    <text class="conv" x="16" y="100" fill="var(--sub)">↓ diffusion wants</text>
+    <text class="conv" x="16" y="118" style="text-decoration:line-through">confidence order</text>
+    <line x1="16" y1="150" x2="162" y2="150" stroke="var(--stroke)"/>
+    <text class="tag" x="16" y="176" fill="var(--keep)">✓ KEEP AR SIDE</text>
+    <text class="conv" x="16" y="198" font-size="11">respects the L-to-R</text>
+    <text class="conv" x="16" y="214" font-size="11">factorization</text>
+  </g>
+</svg>

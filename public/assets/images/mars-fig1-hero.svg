@@ -1,0 +1,90 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 400" font-family="ui-sans-serif, system-ui, sans-serif" role="img" aria-label="One checkpoint, two modes: AR emits one token per forward pass; MARS emits several">
+  <style>
+    :root{
+      --ink:#3A3532; --sub:#7D766E; --accent:#C85A3C; --accent2:#4E8D6E;
+      --line:#C9BEAE; --panel:#FFFFFF; --stroke:#E1D9CD; --tok:#EFE3D6; --bg:#F9F6F0;
+      --mono:ui-monospace,'JetBrains Mono',monospace;
+    }
+    @media (prefers-color-scheme: dark){
+      :root{ --ink:#EBE5DF; --sub:#A1A8A4; --accent:#D99441; --accent2:#6FBF97;
+        --line:#4A524C; --panel:#262C28; --stroke:#3E4641; --tok:#333B36; --bg:#1E2320; }
+    }
+    .t   { fill:var(--ink); }
+    .s   { fill:var(--sub); font-family:var(--mono); }
+    .cap { fill:var(--sub); font-family:var(--mono); font-size:11px; letter-spacing:.1em; }
+    .tok { fill:var(--tok); stroke:var(--stroke); stroke-width:1; }
+    .cover-ar   { fill:var(--panel); animation: revealAR 6.5s steps(12,end) infinite; }
+    .cover-mars { fill:var(--panel); animation: revealMARS 6.5s steps(6,end) infinite; }
+    .edge-ar    { fill:var(--accent);  animation: revealAR 6.5s steps(12,end) infinite; }
+    .edge-mars  { fill:var(--accent);  animation: revealMARS 6.5s steps(6,end) infinite; }
+    @keyframes revealAR   { 0%{transform:translateX(0)} 74%{transform:translateX(432px)} 100%{transform:translateX(432px)} }
+    @keyframes revealMARS { 0%{transform:translateX(0)} 40%{transform:translateX(432px)} 100%{transform:translateX(432px)} }
+    @media (prefers-reduced-motion: reduce){
+      .cover-ar,.cover-mars,.edge-ar,.edge-mars{ animation:none; opacity:0; }
+    }
+  </style>
+
+  <rect x="0" y="0" width="760" height="400" fill="var(--bg)"/>
+
+  <!-- central checkpoint chip -->
+  <g>
+    <rect x="300" y="24" width="160" height="46" rx="10" fill="var(--panel)" stroke="var(--accent)" stroke-width="1.5"/>
+    <text class="s" x="380" y="45" text-anchor="middle" font-size="15" fill="var(--accent)">θ  one checkpoint</text>
+    <text class="cap" x="380" y="62" text-anchor="middle" font-size="10">SAME WEIGHTS · ONE DIAL τ</text>
+  </g>
+  <path d="M330 70 L250 118" stroke="var(--line)" stroke-width="1.5" fill="none"/>
+  <path d="M430 70 L510 118" stroke="var(--line)" stroke-width="1.5" fill="none"/>
+
+  <!-- ===== AR mode row ===== -->
+  <g transform="translate(64,120)">
+    <text class="s"   x="0" y="14" font-size="13" fill="var(--ink)">τ = 1.0 · AR</text>
+    <text class="cap" x="0" y="30">ONE TOKEN / FORWARD PASS</text>
+    <g transform="translate(0,42)">
+      <!-- 12 token cells -->
+      <g>
+        <rect class="tok" x="0"   y="0" width="30" height="30" rx="5"/>
+        <rect class="tok" x="36"  y="0" width="30" height="30" rx="5"/>
+        <rect class="tok" x="72"  y="0" width="30" height="30" rx="5"/>
+        <rect class="tok" x="108" y="0" width="30" height="30" rx="5"/>
+        <rect class="tok" x="144" y="0" width="30" height="30" rx="5"/>
+        <rect class="tok" x="180" y="0" width="30" height="30" rx="5"/>
+        <rect class="tok" x="216" y="0" width="30" height="30" rx="5"/>
+        <rect class="tok" x="252" y="0" width="30" height="30" rx="5"/>
+        <rect class="tok" x="288" y="0" width="30" height="30" rx="5"/>
+        <rect class="tok" x="324" y="0" width="30" height="30" rx="5"/>
+        <rect class="tok" x="360" y="0" width="30" height="30" rx="5"/>
+        <rect class="tok" x="396" y="0" width="30" height="30" rx="5"/>
+      </g>
+      <!-- sliding cover reveals cells left-to-right, one per step -->
+      <rect class="cover-ar" x="0" y="-3" width="432" height="36"/>
+      <rect class="edge-ar"  x="-2" y="-3" width="3" height="36"/>
+    </g>
+    <text class="cap" x="432" y="70" text-anchor="end" fill="var(--accent2)">QUALITY 58.4  (baseline 56.6)</text>
+  </g>
+
+  <!-- ===== MARS mode row ===== -->
+  <g transform="translate(64,248)">
+    <text class="s"   x="0" y="14" font-size="13" fill="var(--ink)">τ = 0.95 · MARS</text>
+    <text class="cap" x="0" y="30">1.8 TOKENS / FORWARD  ·  RUNS OF 2–4</text>
+    <g transform="translate(0,42)">
+      <g>
+        <rect class="tok" x="0"   y="0" width="30" height="30" rx="5"/>
+        <rect class="tok" x="36"  y="0" width="30" height="30" rx="5"/>
+        <rect class="tok" x="72"  y="0" width="30" height="30" rx="5"/>
+        <rect class="tok" x="108" y="0" width="30" height="30" rx="5"/>
+        <rect class="tok" x="144" y="0" width="30" height="30" rx="5"/>
+        <rect class="tok" x="180" y="0" width="30" height="30" rx="5"/>
+        <rect class="tok" x="216" y="0" width="30" height="30" rx="5"/>
+        <rect class="tok" x="252" y="0" width="30" height="30" rx="5"/>
+        <rect class="tok" x="288" y="0" width="30" height="30" rx="5"/>
+        <rect class="tok" x="324" y="0" width="30" height="30" rx="5"/>
+        <rect class="tok" x="360" y="0" width="30" height="30" rx="5"/>
+        <rect class="tok" x="396" y="0" width="30" height="30" rx="5"/>
+      </g>
+      <!-- reveals two cells per step, and finishes sooner: 1.56x -->
+      <rect class="cover-mars" x="0" y="-3" width="432" height="36"/>
+      <rect class="edge-mars"  x="-2" y="-3" width="3" height="36"/>
+    </g>
+    <text class="cap" x="432" y="70" text-anchor="end" fill="var(--accent)">1.56× WALL-CLOCK  ·  GSM8K 70.7 &gt; 68.4</text>
+  </g>
+</svg>
