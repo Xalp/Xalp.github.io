@@ -281,6 +281,83 @@ const ogImage = ogImageUrl
   }
   attachCopyButtons();
 
+  function setupLightbox() {
+    const wall = document.querySelector(".photo-wall");
+    if (!wall || wall.dataset.lbReady) return;
+    wall.dataset.lbReady = "1";
+
+    const links = Array.from(wall.querySelectorAll("a"));
+    const srcs = links.map(a => a.getAttribute("href"));
+    if (!srcs.length) return;
+
+    let overlay = document.getElementById("lightbox");
+    if (!overlay) {
+      overlay = document.createElement("div");
+      overlay.id = "lightbox";
+      overlay.className = "lightbox";
+      overlay.innerHTML =
+        '<button class="lb-close" aria-label="Close">×</button>' +
+        '<button class="lb-nav lb-prev" aria-label="Previous">‹</button>' +
+        '<img class="lb-img" alt="" />' +
+        '<button class="lb-nav lb-next" aria-label="Next">›</button>' +
+        '<div class="lb-count"></div>';
+      document.body.appendChild(overlay);
+    }
+    const imgEl = overlay.querySelector(".lb-img");
+    const countEl = overlay.querySelector(".lb-count");
+    overlay._srcs = srcs;
+
+    function show(i) {
+      const s = overlay._srcs;
+      const idx = (i + s.length) % s.length;
+      overlay._idx = idx;
+      imgEl.src = s[idx];
+      countEl.textContent = idx + 1 + " / " + s.length;
+    }
+    function open(i) {
+      show(i);
+      overlay.classList.add("open");
+      document.documentElement.style.overflow = "hidden";
+    }
+    function close() {
+      overlay.classList.remove("open");
+      document.documentElement.style.overflow = "";
+    }
+    overlay._show = show;
+    overlay._close = close;
+
+    links.forEach((a, i) =>
+      a.addEventListener("click", e => {
+        e.preventDefault();
+        open(i);
+      })
+    );
+    overlay.querySelector(".lb-close").addEventListener("click", close);
+    overlay.querySelector(".lb-prev").addEventListener("click", e => {
+      e.stopPropagation();
+      show(overlay._idx - 1);
+    });
+    overlay.querySelector(".lb-next").addEventListener("click", e => {
+      e.stopPropagation();
+      show(overlay._idx + 1);
+    });
+    overlay.addEventListener("click", e => {
+      if (e.target === overlay) close();
+    });
+
+    if (!window.__lbKeyBound) {
+      window.__lbKeyBound = true;
+      document.addEventListener("keydown", e => {
+        const o = document.getElementById("lightbox");
+        if (!o || !o.classList.contains("open")) return;
+        if (e.key === "Escape") o._close();
+        else if (e.key === "ArrowLeft") o._show(o._idx - 1);
+        else if (e.key === "ArrowRight") o._show(o._idx + 1);
+      });
+    }
+  }
+  setupLightbox();
+
   document.addEventListener("astro:after-swap", () =>
     window.scrollTo({ left: 0, top: 0, behavior: "instant" })
   );
