@@ -1,0 +1,369 @@
+---
+import manifest from "@/data/japan.json";
+
+const frames = manifest as {
+  file: string;
+  date: string;
+  label: string;
+  orient: string;
+}[];
+
+const total = frames.length;
+const pageTitle = "Photoset Japan · September 2024";
+const dateRange = "21–26 September 2024";
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{pageTitle}</title>
+    <meta name="description" content="A photo essay from Japan, September 2024." />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <meta name="theme-color" content="#0a0a0b" />
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content={pageTitle} />
+    <meta property="og:description" content="A photo essay from Japan, September 2024." />
+    <meta property="og:image" content="/assets/images/japan/01.jpg" />
+
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,500;0,700;1,500&family=Inter:wght@400;500&family=JetBrains+Mono:wght@400;500&family=Noto+Serif+JP:wght@500&display=swap"
+      rel="stylesheet"
+    />
+  </head>
+
+  <body>
+    <div class="jp-progress"><span></span></div>
+
+    <a class="jp-masthead" href="/" aria-label="Back to xalp.net">
+      PHOTOSET <span>/</span> JAPAN
+    </a>
+
+    <!-- HERO -->
+    <section class="jp-hero">
+      <span class="jp-kanji" aria-hidden="true">日本</span>
+      <div class="jp-hero-inner">
+        <p class="jp-eyebrow">PHOTOSET · {total} FRAMES</p>
+        <h1 class="jp-title">Japan</h1>
+        <p class="jp-date">{dateRange}</p>
+      </div>
+      <div class="jp-scroll" aria-hidden="true">
+        <span>SCROLL</span>
+        <i></i>
+      </div>
+    </section>
+
+    <!-- FRAMES -->
+    {
+      frames.map((p, i) => (
+        <section class={`jp-frame jp-${p.orient}`} data-i={i}>
+          <figure>
+            <img
+              src={`/assets/images/japan/${p.file}`}
+              alt={`Japan, ${p.label}`}
+              loading={i < 2 ? "eager" : "lazy"}
+              decoding="async"
+              draggable="false"
+            />
+          </figure>
+          <div class="jp-meta">
+            <span class="jp-num">
+              {String(i + 1).padStart(2, "0")} <em>/ {total}</em>
+            </span>
+            <span class="jp-loc">{p.label}</span>
+          </div>
+        </section>
+      ))
+    }
+
+    <!-- OUTRO -->
+    <section class="jp-outro">
+      <p class="jp-eyebrow">END OF SET</p>
+      <h2 class="jp-outro-title">日本</h2>
+      <p class="jp-date">Photoset Japan · September 2024</p>
+      <a class="jp-back" href="/">← back to xalp.net</a>
+    </section>
+
+    <style is:global>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+      :root {
+        --bg: #0a0a0b;
+        --fg: #f4f1ec;
+        --muted: rgba(244, 241, 236, 0.55);
+        --gold: #d8a869;
+      }
+      html {
+        background: var(--bg);
+        scroll-snap-type: y mandatory;
+        scroll-behavior: smooth;
+        -webkit-text-size-adjust: 100%;
+      }
+      body {
+        background: var(--bg);
+        color: var(--fg);
+        font-family: "Inter", system-ui, sans-serif;
+        -webkit-font-smoothing: antialiased;
+        overflow-x: hidden;
+      }
+      img {
+        -webkit-user-drag: none;
+        user-select: none;
+      }
+      a {
+        color: inherit;
+        text-decoration: none;
+      }
+
+      /* progress bar */
+      .jp-progress {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 2px;
+        z-index: 50;
+        background: rgba(255, 255, 255, 0.08);
+      }
+      .jp-progress span {
+        display: block;
+        height: 100%;
+        width: 100%;
+        transform: scaleX(0);
+        transform-origin: 0 50%;
+        background: var(--gold);
+        transition: transform 0.1s linear;
+      }
+
+      /* masthead */
+      .jp-masthead {
+        position: fixed;
+        top: 1.5rem;
+        left: 1.6rem;
+        z-index: 50;
+        font-family: "JetBrains Mono", monospace;
+        font-size: 0.68rem;
+        letter-spacing: 0.24em;
+        color: var(--muted);
+        mix-blend-mode: difference;
+        transition: color 0.3s ease;
+      }
+      .jp-masthead span {
+        color: var(--gold);
+        margin: 0 0.2em;
+      }
+      .jp-masthead:hover {
+        color: var(--fg);
+      }
+
+      /* hero */
+      .jp-hero {
+        position: relative;
+        height: 100svh;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        text-align: center;
+        scroll-snap-align: start;
+        overflow: hidden;
+      }
+      .jp-kanji {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        font-family: "Noto Serif JP", serif;
+        font-size: clamp(20rem, 60vw, 52rem);
+        line-height: 1;
+        color: rgba(255, 255, 255, 0.03);
+        pointer-events: none;
+        white-space: nowrap;
+      }
+      .jp-hero-inner {
+        position: relative;
+        z-index: 1;
+      }
+      .jp-eyebrow {
+        font-family: "JetBrains Mono", monospace;
+        font-size: 0.78rem;
+        letter-spacing: 0.4em;
+        text-indent: 0.4em;
+        color: var(--gold);
+        margin-bottom: 1.4rem;
+      }
+      .jp-title {
+        font-family: "Playfair Display", serif;
+        font-weight: 700;
+        font-size: clamp(4.5rem, 20vw, 13rem);
+        line-height: 0.9;
+        letter-spacing: -0.02em;
+      }
+      .jp-date {
+        margin-top: 1.5rem;
+        font-family: "JetBrains Mono", monospace;
+        font-size: 0.82rem;
+        letter-spacing: 0.28em;
+        text-indent: 0.28em;
+        color: var(--muted);
+        text-transform: uppercase;
+      }
+      .jp-scroll {
+        position: absolute;
+        bottom: 4.5vh;
+        left: 50%;
+        transform: translateX(-50%);
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 0.7rem;
+        font-family: "JetBrains Mono", monospace;
+        font-size: 0.6rem;
+        letter-spacing: 0.3em;
+        color: var(--muted);
+      }
+      .jp-scroll i {
+        width: 1px;
+        height: 42px;
+        background: linear-gradient(var(--gold), transparent);
+        animation: scrollLine 2.2s ease-in-out infinite;
+        transform-origin: top;
+      }
+      @keyframes scrollLine {
+        0% { transform: scaleY(0); opacity: 0; }
+        40% { transform: scaleY(1); opacity: 1; }
+        100% { transform: scaleY(1) translateY(42px); opacity: 0; }
+      }
+
+      /* frames */
+      .jp-frame {
+        position: relative;
+        height: 100svh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 6vh 5vw;
+        scroll-snap-align: center;
+      }
+      .jp-frame figure {
+        max-width: 100%;
+        max-height: 100%;
+        display: flex;
+      }
+      .jp-frame img {
+        max-width: 100%;
+        max-height: 86svh;
+        object-fit: contain;
+        border-radius: 2px;
+        box-shadow: 0 40px 90px rgba(0, 0, 0, 0.65);
+        opacity: 0;
+        transform: scale(0.985) translateY(14px);
+        transition:
+          opacity 1.1s ease,
+          transform 1.3s cubic-bezier(0.2, 0.7, 0.2, 1);
+      }
+      .jp-frame.in img {
+        opacity: 1;
+        transform: none;
+      }
+      .jp-land img { width: auto; }
+      .jp-port img { max-height: 88svh; }
+
+      .jp-meta {
+        position: absolute;
+        left: 5vw;
+        right: 5vw;
+        bottom: 3.5vh;
+        display: flex;
+        align-items: baseline;
+        justify-content: space-between;
+        font-family: "JetBrains Mono", monospace;
+        font-size: 0.68rem;
+        letter-spacing: 0.18em;
+        text-transform: uppercase;
+        color: var(--muted);
+        opacity: 0;
+        transition: opacity 1s ease 0.25s;
+      }
+      .jp-frame.in .jp-meta { opacity: 1; }
+      .jp-num em {
+        font-style: normal;
+        color: rgba(244, 241, 236, 0.35);
+      }
+      .jp-loc { color: var(--gold); }
+
+      /* outro */
+      .jp-outro {
+        height: 100svh;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        text-align: center;
+        gap: 1rem;
+        scroll-snap-align: start;
+      }
+      .jp-outro-title {
+        font-family: "Noto Serif JP", serif;
+        font-weight: 500;
+        font-size: clamp(4rem, 14vw, 8rem);
+        color: var(--fg);
+      }
+      .jp-back {
+        margin-top: 1.5rem;
+        font-family: "JetBrains Mono", monospace;
+        font-size: 0.75rem;
+        letter-spacing: 0.2em;
+        color: var(--muted);
+        border: 1px solid rgba(255, 255, 255, 0.15);
+        padding: 0.7rem 1.3rem;
+        border-radius: 999px;
+        transition: all 0.25s ease;
+      }
+      .jp-back:hover {
+        color: var(--bg);
+        background: var(--gold);
+        border-color: var(--gold);
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        html { scroll-snap-type: none; scroll-behavior: auto; }
+        .jp-frame img { opacity: 1; transform: none; }
+        .jp-scroll i { animation: none; }
+      }
+      @media (max-width: 640px) {
+        .jp-masthead { font-size: 0.6rem; left: 1.1rem; top: 1.1rem; }
+        .jp-meta { font-size: 0.6rem; }
+      }
+    </style>
+
+    <script>
+      const io = new IntersectionObserver(
+        entries => {
+          entries.forEach(e => {
+            if (e.isIntersecting) e.target.classList.add("in");
+          });
+        },
+        { threshold: 0.2 }
+      );
+      document
+        .querySelectorAll(".jp-frame")
+        .forEach(f => io.observe(f));
+
+      const bar = document.querySelector<HTMLElement>(".jp-progress span");
+      const onScroll = () => {
+        const el = document.documentElement;
+        const p = el.scrollTop / (el.scrollHeight - el.clientHeight || 1);
+        if (bar) bar.style.transform = `scaleX(${Math.min(1, Math.max(0, p))})`;
+      };
+      window.addEventListener("scroll", onScroll, { passive: true });
+      onScroll();
+    </script>
+  </body>
+</html>
