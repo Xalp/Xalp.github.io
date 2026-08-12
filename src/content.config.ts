@@ -24,6 +24,9 @@ const posts = defineCollection({
       lang: z.enum(["en", "zh"]).default("en"),
       postId: z.string().optional(),
       unlisted: z.boolean().optional(),
+      // If set, the listing card links straight to this URL (e.g. a
+      // standalone full-screen page) instead of generating a post page.
+      externalUrl: z.string().optional(),
       canonicalURL: z.string().optional(),
       hideEditPost: z.boolean().optional(),
       timezone: z.string().optional(),

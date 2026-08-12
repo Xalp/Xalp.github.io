@@ -10,11 +10,12 @@ type Props = {
 
 const { variant: Heading = "h2", id, data, filePath } = Astro.props;
 
-const { title, description, tags, ...props } = data;
+const { title, description, tags, externalUrl, ...props } = data;
 
 const CATEGORY_KEYS = ["research", "dog", "life"];
 const category = tags.find(tag => CATEGORY_KEYS.includes(tag)) ?? "other";
 const badge = tags[0];
+const href = externalUrl ?? getPostUrl(id, filePath, Astro.currentLocale);
 ---
 
 <li class="my-6 handcrafted-card" data-category={category}>
@@ -23,7 +24,7 @@ const badge = tags[0];
     <Datetime {...props} />
   </div>
   <a
-    href={getPostUrl(id, filePath, Astro.currentLocale)}
+    href={href}
     class:list={[
       "text-accent inline-block text-lg font-medium",
       "decoration-dashed underline-offset-4 hover:underline",
