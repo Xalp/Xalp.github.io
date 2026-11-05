@@ -91,17 +91,30 @@ const activeCategories = BLOG_CATEGORIES.filter(c =>
           </div>
         </div>
 
-        <figure class="hero-photo">
-          <span class="tick tl" aria-hidden="true"></span>
-          <span class="tick tr" aria-hidden="true"></span>
-          <span class="tick bl" aria-hidden="true"></span>
-          <span class="tick br" aria-hidden="true"></span>
-          <div class="photo-frame">
-            <img src="/images/profile-desk.jpg" width="255" height="255" alt="Jin Ziqi" loading="eager" />
-            <span class="shine" aria-hidden="true"></span>
-          </div>
-          <figcaption>NTU · SG</figcaption>
-        </figure>
+        <div class="hero-photos">
+          <figure class="hero-photo">
+            <span class="tick tl" aria-hidden="true"></span>
+            <span class="tick tr" aria-hidden="true"></span>
+            <span class="tick bl" aria-hidden="true"></span>
+            <span class="tick br" aria-hidden="true"></span>
+            <div class="photo-frame">
+              <img src="/images/profile-desk.jpg" width="255" height="319" alt="Jin Ziqi" loading="eager" />
+              <span class="shine" aria-hidden="true"></span>
+            </div>
+            <figcaption>XALP · NTU</figcaption>
+          </figure>
+          <figure class="hero-photo hero-photo--peyto">
+            <span class="tick tl" aria-hidden="true"></span>
+            <span class="tick tr" aria-hidden="true"></span>
+            <span class="tick bl" aria-hidden="true"></span>
+            <span class="tick br" aria-hidden="true"></span>
+            <div class="photo-frame">
+              <img src="/images/IMG_0244.JPG" width="1536" height="2048" alt="Peyto, a curly apricot poodle" loading="eager" />
+              <span class="shine" aria-hidden="true"></span>
+            </div>
+            <figcaption>PEYTO · DOG</figcaption>
+          </figure>
+        </div>
       </div>
     </section>
 
@@ -276,7 +289,7 @@ const activeCategories = BLOG_CATEGORIES.filter(c =>
   .hero-body {
     display: flex;
     align-items: center;
-    gap: clamp(1.5rem, 5vw, 3.5rem);
+    gap: clamp(1.25rem, 3vw, 2.25rem);
   }
   .hero-text { flex: 1 1 auto; min-width: 0; }
 
@@ -342,8 +355,8 @@ const activeCategories = BLOG_CATEGORIES.filter(c =>
     display: flex;
     gap: 0.85rem;
     align-items: baseline;
-    flex-wrap: wrap;
   }
+  .hero-cred dd { min-width: 0; }
   .hero-cred dt {
     flex: 0 0 auto;
     min-width: 5.5rem;
@@ -385,16 +398,23 @@ const activeCategories = BLOG_CATEGORIES.filter(c =>
     text-decoration: none;
   }
 
-  /* photo panel */
+  /* photo panels: Xalp + Peyto */
+  .hero-photos {
+    flex: 0 0 auto;
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+  }
   .hero-photo {
     position: relative;
     flex: 0 0 auto;
-    width: clamp(150px, 26vw, 220px);
+    width: clamp(110px, 13vw, 128px);
     margin: 0;
-    padding: 8px;
+    padding: 6px;
     border: 1px solid var(--border);
     background: color-mix(in srgb, var(--muted) 20%, transparent);
   }
+  .hero-photo--peyto { margin-top: 2.25rem; }
   .photo-frame {
     position: relative;
     overflow: hidden;
@@ -404,8 +424,9 @@ const activeCategories = BLOG_CATEGORIES.filter(c =>
     display: block;
     width: 100%;
     height: auto;
-    aspect-ratio: 1 / 1;
+    aspect-ratio: 4 / 5;
     object-fit: cover;
+    object-position: 50% 40%;
     transition: transform 0.5s ease;
   }
   .hero-photo:hover img { transform: scale(1.04); }
@@ -451,7 +472,9 @@ const activeCategories = BLOG_CATEGORIES.filter(c =>
 
   @media (max-width: 640px) {
     .hero-body { flex-direction: column-reverse; align-items: flex-start; }
-    .hero-photo { width: clamp(130px, 45vw, 180px); }
+    .hero-text { width: 100%; }
+    .hero-photo { width: clamp(120px, 40vw, 160px); }
+    .hero-photo--peyto { margin-top: 1.5rem; }
   }
 
   /* ===== section headers ===== */
