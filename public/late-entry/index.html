@@ -1,0 +1,2392 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="description" content="Late Entry in Looped Language Models. Skip initial recurrent passes on new tokens over a pipelined full-depth KV cache, and reuse finished T-pass wake states in the same output GEMM for 5.2x to 8.4x greedy-exact and up to 12.5x lossy speedups.">
+<meta property="og:title" content="Late Entry in Looped Language Models">
+<meta property="og:description" content="Deep cached context substitutes for token-local early passes. Late Entry + Wake Verification unifies greedy-exact (5.2x on Ouro-2.6B, 6.1x to 8.4x on Huginn-3.5B) and lossy (up to 12.5x) decoding in one static CUDA graph.">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://xalp.net/late-entry/">
+<title>Late Entry in Looped Language Models</title>
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20fill%3D%22none%22%20viewBox%3D%220%200%20128%20128%22%3E%0A%20%20%20%20%3Cpath%20d%3D%22M50.4%2078.5a75.1%2075.1%200%200%200-28.5%206.9l24.2-65.7c.7-2%201.9-3.2%203.4-3.2h29c1.5%200%202.7%201.2%203.4%203.2l24.2%2065.7s-11.6-7-28.5-7L67%2045.5c-.4-1.7-1.6-2.8-2.9-2.8-1.3%200-2.5%201.1-2.9%202.7L50.4%2078.5Zm-1.1%2028.2Zm-4.2-20.2c-2%206.6-.6%2015.8%204.2%2020.2a17.5%2017.5%200%200%201%20.2-.7%205.5%205.5%200%200%201%205.7-4.5c2.8.1%204.3%201.5%204.7%204.7.2%201.1.2%202.3.2%203.5v.4c0%202.7.7%205.2%202.2%207.4a13%2013%200%200%200%205.7%204.9v-.3l-.2-.3c-1.8-5.6-.5-9.5%204.4-12.8l1.5-1a73%2073%200%200%200%203.2-2.2%2016%2016%200%200%200%206.8-11.4c.3-2%20.1-4-.6-6l-.8.6-1.6%201a37%2037%200%200%201-22.4%202.7c-5-.7-9.7-2-13.2-6.2Z%22%20/%3E%0A%20%20%20%20%3Cstyle%3E%0A%20%20%20%20%20%20%20%20path%20%7B%20fill%3A%20%230D7A68%3B%20%7D%0A%20%20%20%20%20%20%20%20%40media%20%28prefers-color-scheme%3A%20dark%29%20%7B%0A%20%20%20%20%20%20%20%20%20%20%20%20path%20%7B%20fill%3A%20%2334D399%3B%20%7D%0A%20%20%20%20%20%20%20%20%7D%0A%20%20%20%20%3C/style%3E%0A%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,500;0,6..72,600;0,6..72,700;1,6..72,500&family=Plus+Jakarta+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap">
+<style>
+:root {
+  --bg: #FAF8F4;
+  --bg-elev: #FFFFFF;
+  --bg-subtle: #F2EFE8;
+  --bg-code: #F5F2EB;
+  --ink: #151921;
+  --ink-soft: #3B4250;
+  --muted: #667080;
+  --faint: #929BA8;
+  --line: #E4DFD5;
+  --line-strong: #CEC7B9;
+  --grid-dot: rgba(21, 25, 33, 0.055);
+
+  --emerald: #0D7A68;
+  --emerald-bright: #109880;
+  --emerald-soft: #E3F5F0;
+  --emerald-border: #8CD8C8;
+
+  --indigo: #25438F;
+  --indigo-soft: #E8EEFC;
+  --indigo-border: #A4B9EF;
+
+  --amber: #B45608;
+  --amber-soft: #FEF2DE;
+  --amber-border: #F2BA68;
+
+  --crimson: #C53329;
+  --crimson-soft: #FDECEB;
+  --crimson-border: #F2A59F;
+
+  --shadow-sm: 0 1px 2px rgba(20, 24, 33, 0.04), 0 4px 14px -4px rgba(20, 24, 33, 0.05);
+  --shadow-md: 0 2px 6px rgba(20, 24, 33, 0.04), 0 16px 38px -12px rgba(20, 24, 33, 0.08);
+
+  --font-serif: "Newsreader", "Source Serif 4", Georgia, serif;
+  --font-sans: "Plus Jakarta Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+:root[data-theme="dark"] {
+  --bg: #0C1017;
+  --bg-elev: #131924;
+  --bg-subtle: #1A2231;
+  --bg-code: #101620;
+  --ink: #ECF0F7;
+  --ink-soft: #C4CDD9;
+  --muted: #8E9BAE;
+  --faint: #616E82;
+  --line: #232D3E;
+  --line-strong: #334158;
+  --grid-dot: rgba(236, 240, 247, 0.055);
+
+  --emerald: #34D399;
+  --emerald-bright: #10B981;
+  --emerald-soft: rgba(16, 185, 129, 0.14);
+  --emerald-border: rgba(52, 211, 153, 0.42);
+
+  --indigo: #84A6FF;
+  --indigo-soft: rgba(99, 136, 255, 0.15);
+  --indigo-border: rgba(132, 166, 255, 0.42);
+
+  --amber: #FBBF24;
+  --amber-soft: rgba(245, 158, 11, 0.15);
+  --amber-border: rgba(251, 191, 36, 0.45);
+
+  --crimson: #F87171;
+  --crimson-soft: rgba(239, 68, 68, 0.16);
+  --crimson-border: rgba(248, 113, 113, 0.45);
+
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.35);
+  --shadow-md: 0 14px 36px -10px rgba(0, 0, 0, 0.55);
+  color-scheme: dark;
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+html { scroll-behavior: smooth; -webkit-text-size-adjust: 100%; }
+body {
+  margin: 0;
+  background-color: var(--bg);
+  color: var(--ink);
+  font-family: var(--font-sans);
+  font-size: 16.5px;
+  line-height: 1.65;
+  font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+  transition: background-color .2s ease, color .2s ease;
+}
+
+.wrap { max-width: 48rem; margin-inline: auto; padding-inline: 1.25rem; }
+.wide { max-width: 72rem; margin-inline: auto; padding-inline: 1.25rem; }
+
+h1, h2, h3, h4 {
+  font-family: var(--font-serif);
+  color: var(--ink);
+  margin: 0;
+  line-height: 1.15;
+  text-wrap: balance;
+}
+p { margin: 0; }
+i, em { padding-right: 0.08em; }
+a { color: var(--emerald); text-decoration-thickness: 1px; text-underline-offset: 3px; }
+code, pre, .mono { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+
+/* ---- Top Sticky Bar ---- */
+.topbar {
+  position: sticky;
+  top: 0;
+  z-index: 60;
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  background: color-mix(in srgb, var(--bg) 86%, transparent);
+  border-bottom: 1px solid var(--line);
+}
+.topbar-inner {
+  max-width: 72rem;
+  margin-inline: auto;
+  padding: .62rem 1.25rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+.brand {
+  display: inline-flex;
+  align-items: center;
+  gap: .55rem;
+  font-family: var(--font-serif);
+  font-weight: 700;
+  font-size: 1.05rem;
+  color: var(--ink);
+  text-decoration: none;
+  white-space: nowrap;
+}
+.brand-dot {
+  width: 9px; height: 9px; border-radius: 50%;
+  background: var(--emerald);
+  box-shadow: 0 0 0 3px var(--emerald-soft);
+}
+.topnav {
+  display: flex;
+  align-items: center;
+  gap: .25rem;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.topnav::-webkit-scrollbar { display: none; }
+.topnav a {
+  color: var(--muted);
+  text-decoration: none;
+  font-size: .83rem;
+  font-weight: 600;
+  padding: .32rem .65rem;
+  border-radius: 999px;
+  white-space: nowrap;
+  transition: color .15s, background .15s;
+}
+.topnav a:hover { color: var(--ink); background: var(--bg-subtle); }
+.theme-btn {
+  appearance: none;
+  border: 1px solid var(--line);
+  background: var(--bg-elev);
+  color: var(--ink-soft);
+  border-radius: 999px;
+  padding: .32rem .68rem;
+  font: inherit;
+  font-size: .8rem;
+  font-weight: 600;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: .38rem;
+  white-space: nowrap;
+}
+.theme-btn:hover { border-color: var(--line-strong); background: var(--bg-subtle); }
+@media (max-width: 820px) { .topnav { display: none; } }
+
+/* ---- Hero ---- */
+.hero-shell {
+  background-image: radial-gradient(var(--grid-dot) 1px, transparent 1px);
+  background-size: 20px 20px;
+  border-bottom: 1px solid var(--line);
+  padding-block: 3.4rem 3.2rem;
+}
+.eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: .45rem;
+  font-family: var(--font-mono);
+  font-size: .74rem;
+  font-weight: 600;
+  letter-spacing: .09em;
+  text-transform: uppercase;
+  color: var(--emerald);
+  margin-bottom: .75rem;
+}
+.hero-title {
+  font-size: clamp(2.55rem, 5.6vw, 4.25rem);
+  font-weight: 700;
+  letter-spacing: -0.024em;
+  line-height: 1.04;
+}
+.hero-title em {
+  font-style: italic;
+  font-weight: 600;
+  color: var(--emerald);
+}
+.hero-sub {
+  margin-top: .95rem;
+  font-size: clamp(1.06rem, 1.85vw, 1.24rem);
+  color: var(--ink-soft);
+  max-width: 46rem;
+  line-height: 1.56;
+}
+.authors-block {
+  margin-top: 1.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: .28rem;
+}
+.authors { font-size: .98rem; font-weight: 600; color: var(--ink); }
+.authors sup { font-size: .68em; color: var(--muted); margin-left: 1px; }
+.affils { font-size: .88rem; color: var(--muted); line-height: 1.5; }
+.hero-actions {
+  margin-top: 1.35rem;
+  display: flex;
+  flex-wrap: wrap;
+  gap: .6rem;
+}
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: .48rem;
+  padding: .52rem 1rem;
+  border-radius: 999px;
+  border: 1px solid var(--line-strong);
+  background: var(--bg-elev);
+  color: var(--ink);
+  font-size: .89rem;
+  font-weight: 600;
+  text-decoration: none;
+  box-shadow: var(--shadow-sm);
+  transition: transform .14s ease, border-color .14s ease, background .14s ease;
+}
+.btn:hover { transform: translateY(-1px); border-color: var(--ink); }
+.btn.primary {
+  background: var(--emerald);
+  border-color: var(--emerald);
+  color: #FFFFFF;
+}
+:root[data-theme="dark"] .btn.primary { color: #06211B; }
+.btn.primary:hover { filter: brightness(1.06); }
+.btn.soon {
+  border-style: dashed;
+  color: var(--muted);
+  box-shadow: none;
+  cursor: default;
+}
+.btn.soon:hover { transform: none; border-color: var(--line-strong); }
+.btn.soon small {
+  font-family: var(--font-mono);
+  font-size: .68rem;
+  text-transform: uppercase;
+  background: var(--bg-subtle);
+  padding: .1rem .42rem;
+  border-radius: 999px;
+}
+
+/* ---- Hero Animated 3-Paradigm Strip ---- */
+.paradigm-grid {
+  margin-top: 2.3rem;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1rem;
+}
+@media (max-width: 900px) { .paradigm-grid { grid-template-columns: 1fr; } }
+.pcard {
+  background: var(--bg-elev);
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  padding: 1.05rem 1.15rem 1rem;
+  box-shadow: var(--shadow-sm);
+  display: flex;
+  flex-direction: column;
+  gap: .65rem;
+  position: relative;
+  overflow: hidden;
+}
+.pcard.ours {
+  border-color: var(--emerald-border);
+  box-shadow: var(--shadow-md);
+}
+.pcard-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: .5rem;
+}
+.pcard-title { font-family: var(--font-sans); font-size: .95rem; font-weight: 700; }
+.pcard-badge {
+  font-family: var(--font-mono);
+  font-size: .71rem;
+  font-weight: 600;
+  padding: .14rem .48rem;
+  border-radius: 999px;
+  background: var(--bg-subtle);
+  color: var(--muted);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.pcard.ours .pcard-badge { background: var(--emerald-soft); color: var(--emerald); }
+.pcard.early .pcard-badge { background: var(--amber-soft); color: var(--amber); }
+.pcard svg { width: 100%; height: auto; display: block; }
+.pcard-foot {
+  font-size: .82rem;
+  color: var(--muted);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-top: 1px solid var(--line);
+  padding-top: .55rem;
+}
+.pcard-foot strong { color: var(--ink); font-weight: 600; }
+.pcard.ours .pcard-foot strong { color: var(--emerald); }
+.pcard.early .pcard-foot strong { color: var(--crimson); }
+
+/* Hero SVG pulse classes */
+.kv-slot { transition: fill .28s ease, stroke .28s ease, opacity .28s ease; }
+.pulse-glow { transition: opacity .22s ease; }
+
+/* ---- KPI Strip ---- */
+.kpi-grid {
+  margin-top: 1.15rem;
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: .9rem;
+}
+@media (max-width: 960px) { .kpi-grid { grid-template-columns: repeat(2, 1fr); } }
+@media (max-width: 520px) { .kpi-grid { grid-template-columns: 1fr; } }
+.kpi-card {
+  background: var(--bg-elev);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 1rem 1.1rem;
+  display: flex;
+  flex-direction: column;
+  gap: .25rem;
+}
+.kpi-num {
+  font-family: var(--font-serif);
+  font-size: 2.05rem;
+  font-weight: 700;
+  line-height: 1.05;
+  font-variant-numeric: tabular-nums;
+  color: var(--ink);
+}
+.kpi-num.em { color: var(--emerald); }
+.kpi-num.in { color: var(--indigo); }
+.kpi-num small { font-size: 1rem; font-weight: 600; color: var(--muted); margin-left: 2px; }
+.kpi-lbl { font-size: .87rem; font-weight: 700; color: var(--ink); margin-top: .1rem; }
+.kpi-desc { font-size: .8rem; color: var(--muted); line-height: 1.45; }
+
+/* ---- Sections ---- */
+section.sec { padding-block: 3.8rem; border-bottom: 1px solid var(--line); }
+.sec-head { margin-bottom: 1.8rem; display: flex; flex-direction: column; gap: .65rem; }
+.sec-head h2 { font-size: clamp(1.65rem, 3vw, 2.25rem); font-weight: 700; letter-spacing: -0.015em; }
+.sec-lead { font-size: 1.03rem; color: var(--ink-soft); line-height: 1.65; }
+
+/* ---- Interactive Wake Animation Studio ---- */
+.studio {
+  background: var(--bg-elev);
+  border: 1px solid var(--line-strong);
+  border-radius: 20px;
+  box-shadow: var(--shadow-md);
+  overflow: hidden;
+}
+.studio-top {
+  background: var(--bg-subtle);
+  border-bottom: 1px solid var(--line);
+  padding: .95rem 1.25rem;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: .85rem;
+}
+.scen-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .4rem;
+}
+.scen-btn {
+  appearance: none;
+  border: 1px solid var(--line-strong);
+  background: var(--bg-elev);
+  color: var(--ink-soft);
+  font: inherit;
+  font-size: .82rem;
+  font-weight: 600;
+  padding: .42rem .8rem;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: all .15s ease;
+}
+.scen-btn:hover { border-color: var(--ink); color: var(--ink); }
+.scen-btn.active {
+  background: var(--ink);
+  border-color: var(--ink);
+  color: var(--bg);
+}
+
+.tau-box {
+  display: flex;
+  align-items: center;
+  gap: .5rem;
+  flex-wrap: wrap;
+}
+.tau-lbl {
+  font-family: var(--font-mono);
+  font-size: .75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .05em;
+  color: var(--muted);
+}
+.tau-seg {
+  display: inline-flex;
+  background: var(--bg-elev);
+  border: 1px solid var(--line-strong);
+  border-radius: 10px;
+  padding: 2px;
+}
+.tau-btn {
+  appearance: none;
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  font-family: var(--font-mono);
+  font-size: .78rem;
+  font-weight: 600;
+  padding: .34rem .66rem;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all .15s ease;
+}
+.tau-btn.active[data-tau="0"] { background: var(--emerald); color: #fff; }
+:root[data-theme="dark"] .tau-btn.active[data-tau="0"] { color: #052019; }
+.tau-btn.active[data-tau="0.25"] { background: var(--amber); color: #fff; }
+:root[data-theme="dark"] .tau-btn.active[data-tau="0.25"] { color: #241202; }
+.tau-btn.active[data-tau="inf"] { background: var(--indigo); color: #fff; }
+:root[data-theme="dark"] .tau-btn.active[data-tau="inf"] { color: #081229; }
+
+/* Stepper timeline */
+.stepper-bar {
+  padding: .85rem 1.25rem;
+  border-bottom: 1px solid var(--line);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: .9rem;
+  flex-wrap: wrap;
+}
+.play-ctrls {
+  display: inline-flex;
+  align-items: center;
+  gap: .4rem;
+}
+.ctrl-btn {
+  appearance: none;
+  border: 1px solid var(--line-strong);
+  background: var(--bg-elev);
+  color: var(--ink);
+  font: inherit;
+  font-size: .82rem;
+  font-weight: 600;
+  padding: .36rem .75rem;
+  border-radius: 8px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: .35rem;
+}
+.ctrl-btn:hover { background: var(--bg-subtle); }
+.ctrl-btn.play-primary {
+  background: var(--emerald-soft);
+  border-color: var(--emerald-border);
+  color: var(--emerald);
+}
+.step-pills {
+  display: flex;
+  flex: 1;
+  gap: .45rem;
+  min-width: 260px;
+}
+.step-pill {
+  flex: 1;
+  appearance: none;
+  border: 1px solid var(--line);
+  background: var(--bg);
+  color: var(--muted);
+  border-radius: 9px;
+  padding: .38rem .55rem;
+  text-align: left;
+  cursor: pointer;
+  position: relative;
+  overflow: hidden;
+  transition: border-color .15s, color .15s;
+}
+.step-pill:hover { border-color: var(--line-strong); color: var(--ink); }
+.step-pill.active {
+  border-color: var(--emerald);
+  background: var(--bg-elev);
+  color: var(--ink);
+}
+.step-pill .sp-num {
+  display: block;
+  font-family: var(--font-mono);
+  font-size: .69rem;
+  font-weight: 700;
+  color: var(--emerald);
+}
+.step-pill .sp-txt {
+  display: block;
+  font-size: .77rem;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.step-prog {
+  position: absolute;
+  left: 0; bottom: 0; height: 2.5px;
+  background: var(--emerald);
+  width: 0%;
+}
+
+/* Studio Main Canvas */
+.studio-body {
+  padding: 1.25rem;
+  display: grid;
+  grid-template-columns: 1.52fr 1fr;
+  gap: 1.2rem;
+  align-items: stretch;
+}
+@media (max-width: 960px) { .studio-body { grid-template-columns: 1fr; } }
+
+.stage-left {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  min-width: 0;
+}
+.tape-box, .matrix-box, .gpu-box {
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: .9rem 1rem;
+}
+.zone-hdr {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: .5rem;
+  margin-bottom: .68rem;
+  flex-wrap: wrap;
+}
+.zone-title {
+  font-family: var(--font-mono);
+  font-size: .74rem;
+  font-weight: 700;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.legend-inline {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .65rem;
+  font-size: .75rem;
+  color: var(--muted);
+}
+.legend-inline span { display: inline-flex; align-items: center; gap: .3rem; }
+.sw { width: 10px; height: 10px; border-radius: 3px; display: inline-block; }
+.sw.ver { background: var(--emerald-soft); border: 1.5px solid var(--emerald); }
+.sw.tent { background: var(--amber-soft); border: 1.5px dashed var(--amber); }
+.sw.cand { background: var(--indigo-soft); border: 1.5px dashed var(--indigo); }
+.sw.rb { background: var(--crimson-soft); border: 1.5px solid var(--crimson); }
+
+/* Token Tape */
+.token-tape {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .42rem;
+  min-height: 2.5rem;
+  align-items: center;
+}
+.tok-pill {
+  font-family: var(--font-mono);
+  font-size: .86rem;
+  font-weight: 600;
+  padding: .3rem .62rem;
+  border-radius: 8px;
+  display: inline-flex;
+  align-items: center;
+  gap: .32rem;
+  transition: all .32s cubic-bezier(.22, 1, .36, 1);
+  position: relative;
+}
+.tok-pill .t-sub {
+  font-size: .64rem;
+  font-weight: 700;
+  opacity: .82;
+  padding: .05rem .28rem;
+  border-radius: 4px;
+  background: rgba(0,0,0,.06);
+}
+:root[data-theme="dark"] .tok-pill .t-sub { background: rgba(255,255,255,.1); }
+.tok-pill.ver {
+  background: var(--emerald-soft);
+  border: 1.5px solid var(--emerald);
+  color: var(--emerald);
+}
+.tok-pill.tent {
+  background: var(--amber-soft);
+  border: 1.5px dashed var(--amber);
+  color: var(--amber);
+}
+.tok-pill.cand {
+  background: var(--indigo-soft);
+  border: 1.5px dashed var(--indigo);
+  color: var(--indigo);
+  animation: pulseSoft 1.3s ease-in-out infinite;
+}
+.tok-pill.rb {
+  background: var(--crimson-soft);
+  border: 1.5px solid var(--crimson);
+  color: var(--crimson);
+  text-decoration: line-through;
+  opacity: .68;
+  transform: scale(.95);
+}
+.tok-pill.fix {
+  background: var(--emerald);
+  border: 1.5px solid var(--emerald);
+  color: #FFFFFF;
+  box-shadow: 0 0 0 4px var(--emerald-soft);
+  transform: translateY(-2px);
+}
+:root[data-theme="dark"] .tok-pill.fix { color: #052019; }
+
+@keyframes pulseSoft {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-2px); }
+}
+
+/* 2D KV-Cache Matrix */
+.kv-matrix-wrap { overflow-x: auto; }
+.kv-grid {
+  display: grid;
+  grid-template-columns: 3.6rem repeat(8, minmax(3.15rem, 1fr));
+  gap: 5px;
+  min-width: 490px;
+  align-items: center;
+}
+.kv-row-lbl {
+  font-family: var(--font-mono);
+  font-size: .74rem;
+  font-weight: 700;
+  color: var(--muted);
+  text-align: right;
+  padding-right: .35rem;
+}
+.kv-col-lbl {
+  font-family: var(--font-mono);
+  font-size: .74rem;
+  font-weight: 600;
+  color: var(--ink-soft);
+  text-align: center;
+  padding-top: .22rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.kv-cell {
+  height: 26px;
+  border-radius: 6px;
+  font-family: var(--font-mono);
+  font-size: .66rem;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all .32s cubic-bezier(.22, 1, .36, 1);
+  border: 1px dashed var(--line-strong);
+  color: var(--faint);
+  background: var(--bg-elev);
+}
+.kv-cell.exact {
+  background: var(--emerald-soft);
+  border: 1.4px solid var(--emerald);
+  color: var(--emerald);
+}
+.kv-cell.wake-now {
+  background: var(--emerald);
+  border: 1.4px solid var(--emerald);
+  color: #FFFFFF;
+  box-shadow: 0 0 0 3px var(--emerald-soft);
+}
+:root[data-theme="dark"] .kv-cell.wake-now { color: #052019; }
+.kv-cell.prov {
+  background: repeating-linear-gradient(-45deg, var(--amber-soft), var(--amber-soft) 5px, var(--bg-elev) 5px, var(--bg-elev) 10px);
+  border: 1.4px solid var(--amber);
+  color: var(--amber);
+}
+.kv-cell.crit-now {
+  background: var(--indigo);
+  border: 1.4px solid var(--indigo);
+  color: #FFFFFF;
+  box-shadow: 0 0 0 3px var(--indigo-soft);
+}
+:root[data-theme="dark"] .kv-cell.crit-now { color: #081229; }
+.kv-cell.rb-fade {
+  background: var(--crimson-soft);
+  border: 1.2px dashed var(--crimson);
+  color: var(--crimson);
+  opacity: .55;
+}
+
+/* Right Panel: GPU Call & Shared GEMM Inspector */
+.gpu-box {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: .85rem;
+}
+.call-card {
+  background: var(--bg-elev);
+  border: 1px solid var(--line);
+  border-radius: 11px;
+  padding: .75rem .85rem;
+  display: flex;
+  flex-direction: column;
+  gap: .5rem;
+}
+.batch-meter {
+  height: 22px;
+  background: var(--bg-subtle);
+  border-radius: 7px;
+  border: 1px solid var(--line);
+  display: flex;
+  overflow: hidden;
+  position: relative;
+}
+.bm-seg {
+  height: 100%;
+  transition: width .35s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-mono);
+  font-size: .65rem;
+  font-weight: 700;
+  color: #fff;
+  white-space: nowrap;
+  overflow: hidden;
+}
+.bm-front { background: var(--indigo); }
+.bm-w1 { background: #0E9384; }
+.bm-w2 { background: var(--emerald); }
+.ridge-tag {
+  display: flex;
+  flex-direction: column;
+  gap: .15rem;
+  font-family: var(--font-mono);
+  font-size: .71rem;
+  color: var(--muted);
+}
+
+.gemm-card {
+  background: var(--bg-elev);
+  border: 1.5px solid var(--line-strong);
+  border-radius: 11px;
+  padding: .8rem .9rem;
+  display: flex;
+  flex-direction: column;
+  gap: .45rem;
+  transition: border-color .25s ease, background .25s ease;
+}
+.gemm-card.ok { border-color: var(--emerald); background: color-mix(in srgb, var(--emerald-soft) 45%, var(--bg-elev)); }
+.gemm-card.alert { border-color: var(--crimson); background: color-mix(in srgb, var(--crimson-soft) 50%, var(--bg-elev)); }
+.gemm-card.tolerated { border-color: var(--amber); background: color-mix(in srgb, var(--amber-soft) 50%, var(--bg-elev)); }
+
+.gemm-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-family: var(--font-mono);
+  font-size: .74rem;
+  font-weight: 700;
+}
+.gemm-eq {
+  font-family: var(--font-mono);
+  font-size: .82rem;
+  color: var(--ink);
+  line-height: 1.45;
+}
+.gemm-verdict {
+  font-family: var(--font-mono);
+  font-size: .76rem;
+  font-weight: 700;
+  padding: .28rem .55rem;
+  border-radius: 6px;
+  display: inline-block;
+  align-self: flex-start;
+}
+.gemm-verdict.ok { background: var(--emerald-soft); color: var(--emerald); }
+.gemm-verdict.alert { background: var(--crimson-soft); color: var(--crimson); }
+.gemm-verdict.tolerated { background: var(--amber-soft); color: var(--amber); }
+.gemm-verdict.idle { background: var(--bg-subtle); color: var(--muted); }
+
+/* Studio Narration Footer */
+.studio-foot {
+  border-top: 1px solid var(--line);
+  background: var(--bg-subtle);
+  padding: 1rem 1.25rem;
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 1.2rem;
+  align-items: center;
+}
+@media (max-width: 820px) { .studio-foot { grid-template-columns: 1fr; } }
+.narration-title {
+  font-weight: 700;
+  font-size: .95rem;
+  color: var(--ink);
+  margin-bottom: .2rem;
+}
+.narration-body { font-size: .89rem; color: var(--ink-soft); line-height: 1.55; }
+.telem-strip {
+  display: flex;
+  gap: .65rem;
+  flex-wrap: wrap;
+}
+.telem-pill {
+  background: var(--bg-elev);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: .4rem .7rem;
+  min-width: 6.4rem;
+}
+.telem-pill small {
+  display: block;
+  font-family: var(--font-mono);
+  font-size: .66rem;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.telem-pill strong {
+  font-family: var(--font-mono);
+  font-size: .9rem;
+  color: var(--ink);
+}
+.telem-pill strong.em { color: var(--emerald); }
+
+/* ---- Proposition / 3 Pillars ---- */
+.pillar-grid {
+  margin-top: 1.4rem;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1rem;
+}
+@media (max-width: 840px) { .pillar-grid { grid-template-columns: 1fr; } }
+.pillar-card {
+  background: var(--bg-elev);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 1.15rem 1.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: .45rem;
+}
+.pillar-card h3 { font-size: 1.08rem; font-weight: 700; }
+.pillar-card p { font-size: .89rem; color: var(--ink-soft); line-height: 1.55; }
+.pillar-tag {
+  font-family: var(--font-mono);
+  font-size: .71rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .06em;
+  color: var(--emerald);
+}
+
+/* ---- Discovery Two-Col ---- */
+.two-col {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1.25rem;
+}
+@media (max-width: 860px) { .two-col { grid-template-columns: 1fr; } }
+.card {
+  background: var(--bg-elev);
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  padding: 1.25rem 1.35rem;
+  box-shadow: var(--shadow-sm);
+  display: flex;
+  flex-direction: column;
+  gap: .85rem;
+}
+.card h3 { font-size: 1.16rem; font-weight: 700; }
+.card-sub { font-size: .84rem; color: var(--muted); margin-top: -.45rem; }
+
+.bar-list { display: flex; flex-direction: column; gap: .58rem; }
+.bar-row {
+  display: grid;
+  grid-template-columns: minmax(9.5rem, 12.5rem) 1fr 3.6rem;
+  gap: .65rem;
+  align-items: center;
+}
+.bar-lbl { font-size: .84rem; font-weight: 600; line-height: 1.25; }
+.bar-lbl small { display: block; font-weight: 400; font-size: .74rem; color: var(--muted); }
+.bar-trk { height: 18px; background: var(--bg-subtle); border-radius: 5px; overflow: hidden; }
+.bar-fill { height: 100%; border-radius: 5px; transition: width .5s ease; }
+.bar-fill.em { background: var(--emerald); }
+.bar-fill.in { background: var(--indigo); }
+.bar-fill.am { background: var(--amber); }
+.bar-fill.cr { background: var(--crimson); }
+.bar-fill.mu { background: var(--faint); }
+.bar-val { font-family: var(--font-mono); font-size: .85rem; font-weight: 700; text-align: right; }
+
+/* ---- Wake Spectrum Interactive Table ---- */
+.model-switch {
+  display: inline-flex;
+  background: var(--bg-subtle);
+  border: 1px solid var(--line);
+  border-radius: 11px;
+  padding: 3px;
+  gap: 3px;
+  margin-bottom: 1rem;
+}
+.ms-btn {
+  appearance: none;
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  font: inherit;
+  font-size: .85rem;
+  font-weight: 700;
+  padding: .44rem .95rem;
+  border-radius: 8px;
+  cursor: pointer;
+}
+.ms-btn.active {
+  background: var(--bg-elev);
+  color: var(--ink);
+  box-shadow: var(--shadow-sm);
+}
+
+.table-card {
+  background: var(--bg-elev);
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  padding: 1.1rem 1.25rem;
+  box-shadow: var(--shadow-sm);
+  overflow-x: auto;
+}
+table.data-tbl {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: .86rem;
+  min-width: 720px;
+}
+.data-tbl th, .data-tbl td {
+  padding: .54rem .55rem;
+  border-bottom: 1px solid var(--line);
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+.data-tbl th:first-child, .data-tbl td:first-child,
+.data-tbl th:nth-child(2), .data-tbl td:nth-child(2) { text-align: left; }
+.data-tbl thead th {
+  font-family: var(--font-mono);
+  font-size: .72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+  color: var(--muted);
+  border-bottom: 1.5px solid var(--line-strong);
+}
+.data-tbl tbody tr:hover { background: color-mix(in srgb, var(--bg-subtle) 55%, transparent); }
+.data-tbl tr.group-hdr td {
+  text-align: left;
+  font-weight: 700;
+  font-size: .8rem;
+  color: var(--ink-soft);
+  background: var(--bg-subtle);
+  padding-block: .42rem;
+}
+.pill-sp {
+  font-family: var(--font-mono);
+  font-weight: 700;
+  padding: .14rem .44rem;
+  border-radius: 6px;
+  display: inline-block;
+}
+.pill-sp.em { background: var(--emerald-soft); color: var(--emerald); }
+.pill-sp.am { background: var(--amber-soft); color: var(--amber); }
+.pill-sp.in { background: var(--indigo-soft); color: var(--indigo); }
+
+/* ---- Charts SVG ---- */
+.chart-svg { width: 100%; height: auto; display: block; }
+
+/* ---- Checkpoints & Citation ---- */
+.ckpt-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: .8rem;
+  margin-top: 1rem;
+}
+.ckpt-item {
+  background: var(--bg-elev);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: .85rem 1rem;
+  text-decoration: none;
+  color: inherit;
+  display: flex;
+  flex-direction: column;
+  gap: .22rem;
+  transition: border-color .15s, transform .15s;
+}
+.ckpt-item:hover { border-color: var(--emerald); transform: translateY(-1px); }
+.ckpt-item code { font-size: .81rem; font-weight: 700; color: var(--emerald); }
+.ckpt-item span { font-size: .81rem; color: var(--muted); }
+
+pre.bib-box {
+  background: var(--bg-code);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 1.05rem 1.2rem;
+  overflow-x: auto;
+  font-size: .83rem;
+  line-height: 1.55;
+  margin-top: .8rem;
+}
+footer {
+  padding-block: 2.4rem 3.4rem;
+  color: var(--muted);
+  font-size: .86rem;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation: none !important; transition: none !important; }
+}
+</style>
+</head>
+<body>
+
+<nav class="topbar" aria-label="Primary">
+  <div class="topbar-inner">
+    <a class="brand" href="#top"><span class="brand-dot"></span>Late Entry &middot; Wake</a>
+    <div class="topnav">
+      <a href="#how-it-works">Animated Pipeline</a>
+      <a href="#discovery">Why Late Passes Win</a>
+      <a href="#wake-results">Wake Spectrum</a>
+      <a href="#scaling-roofline">T-Scaling &amp; Roofline</a>
+      <a href="#benchmarks">Full Benchmarks</a>
+      <a href="#citation">BibTeX</a>
+    </div>
+    <button type="button" class="theme-btn" id="themeToggle" aria-label="Toggle color theme">
+      <span id="themeIcon">&#9789;</span> <span id="themeLabel">Dark</span>
+    </button>
+  </div>
+</nav>
+
+<header class="hero-shell" id="top">
+  <div class="wide">
+    <div class="wrap" style="padding-inline:0;margin-inline:0;max-width:52rem">
+      <p class="eyebrow">Preprint &middot; 2026 &middot; Looped LLM Inference Systems</p>
+      <h1 class="hero-title"><em>Late Entry</em> in Looped Language Models</h1>
+      <p class="hero-sub">
+        In looped Transformers, <strong>deep cached context substitutes for token-local early passes</strong>.
+        Our converged decoder verifies candidate blocks through only the <strong>final <i>K</i> &lt; <i>T</i> passes</strong> on the critical path, completes exact 1&nbsp;&rarr;&nbsp;<i>T</i> KV caches as piggybacked batch rows at <strong>zero extra serial calls</strong>, and projects finished wake states inside the <strong>same output GEMM</strong> to unify <strong>greedy-exact</strong> (&tau;&nbsp;=&nbsp;0) and <strong>high-speed lossy</strong> (&tau;&nbsp;=&nbsp;&infin;) decoding in one CUDA graph.
+      </p>
+      <div class="authors-block">
+        <p class="authors">Ziqi Jin<sup>1</sup>, Jiaxi Li<sup>2</sup>, Weiwen Xu<sup>3,&dagger;</sup>, Aixin Sun<sup>1,&dagger;</sup></p>
+        <p class="affils">
+          <sup>1</sup>Nanyang Technological University &nbsp;&middot;&nbsp;
+          <sup>2</sup>Singapore University of Technology and Design &nbsp;&middot;&nbsp;
+          <sup>3</sup>The Chinese University of Hong Kong<br>
+          <sup>&dagger;</sup>Co-corresponding authors: <a href="mailto:weiwen.xuu@gmail.com">weiwen.xuu@gmail.com</a>, <a href="mailto:axsun@ntu.edu.sg">axsun@ntu.edu.sg</a>
+        </p>
+      </div>
+      <div class="hero-actions">
+        <a class="btn primary" href="#how-it-works">
+          <svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M4 2.5v11l9-5.5-9-5.5z"/></svg>
+          Watch How Wake Works
+        </a>
+        <span class="btn soon">arXiv <small>soon</small></span>
+        <a class="btn" href="https://github.com/Xalp/LateComer" target="_blank" rel="noopener">
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8a8 8 0 0 0 5.47 7.59c.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82a7.6 7.6 0 0 1 4 0c1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8z"/></svg>
+          Code (GitHub)
+        </a>
+        <a class="btn" href="https://huggingface.co/collections/Xalphinions/late-entry" target="_blank" rel="noopener">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="9"/><circle cx="9" cy="10" r="1.2" fill="currentColor"/><circle cx="15" cy="10" r="1.2" fill="currentColor"/><path d="M8.5 14.5c1 1.4 2.2 2 3.5 2s2.5-.6 3.5-2" stroke-linecap="round"/></svg>
+          Checkpoints (5 Models)
+        </a>
+      </div>
+    </div>
+
+    <!-- Animated 3-Paradigm Pass Pulse -->
+    <div class="paradigm-grid" id="heroPulse" aria-label="Live comparison of Full-Depth Block, Early Exit, and Late Entry + Wake">
+      <div class="pcard">
+        <div class="pcard-head">
+          <span class="pcard-title">(a) Full-Depth Block (<i>K</i> = <i>T</i>)</span>
+          <span class="pcard-badge" id="hpBadgeFull">4 serial calls / step</span>
+        </div>
+        <svg viewBox="0 0 340 156" role="img" aria-label="Full-depth block runs all 4 passes serially">
+          <g font-family="var(--font-mono)" font-size="10.5" fill="var(--muted)">
+            <text x="6" y="26">P4</text><text x="6" y="54">P3</text><text x="6" y="82">P2</text><text x="6" y="110">P1</text>
+          </g>
+          <g transform="translate(32,12)">
+            <!-- Context 3 cols -->
+            <rect x="0" y="0" width="54" height="20" rx="4" fill="var(--indigo-soft)" stroke="var(--indigo-border)"/>
+            <rect x="62" y="0" width="54" height="20" rx="4" fill="var(--indigo-soft)" stroke="var(--indigo-border)"/>
+            <rect x="124" y="0" width="54" height="20" rx="4" fill="var(--indigo-soft)" stroke="var(--indigo-border)"/>
+            <rect x="0" y="28" width="54" height="20" rx="4" fill="var(--indigo-soft)" stroke="var(--indigo-border)"/>
+            <rect x="62" y="28" width="54" height="20" rx="4" fill="var(--indigo-soft)" stroke="var(--indigo-border)"/>
+            <rect x="124" y="28" width="54" height="20" rx="4" fill="var(--indigo-soft)" stroke="var(--indigo-border)"/>
+            <rect x="0" y="56" width="54" height="20" rx="4" fill="var(--indigo-soft)" stroke="var(--indigo-border)"/>
+            <rect x="62" y="56" width="54" height="20" rx="4" fill="var(--indigo-soft)" stroke="var(--indigo-border)"/>
+            <rect x="124" y="56" width="54" height="20" rx="4" fill="var(--indigo-soft)" stroke="var(--indigo-border)"/>
+            <rect x="0" y="84" width="54" height="20" rx="4" fill="var(--indigo-soft)" stroke="var(--indigo-border)"/>
+            <rect x="62" y="84" width="54" height="20" rx="4" fill="var(--indigo-soft)" stroke="var(--indigo-border)"/>
+            <rect x="124" y="84" width="54" height="20" rx="4" fill="var(--indigo-soft)" stroke="var(--indigo-border)"/>
+            <line x1="192" y1="-4" x2="192" y2="128" stroke="var(--line-strong)" stroke-dasharray="3 3"/>
+            <!-- Active block col animated -->
+            <rect id="hf4" class="kv-slot" x="206" y="0" width="88" height="20" rx="4" fill="var(--bg-subtle)" stroke="var(--line-strong)"/>
+            <rect id="hf3" class="kv-slot" x="206" y="28" width="88" height="20" rx="4" fill="var(--bg-subtle)" stroke="var(--line-strong)"/>
+            <rect id="hf2" class="kv-slot" x="206" y="56" width="88" height="20" rx="4" fill="var(--bg-subtle)" stroke="var(--line-strong)"/>
+            <rect id="hf1" class="kv-slot" x="206" y="84" width="88" height="20" rx="4" fill="var(--bg-subtle)" stroke="var(--line-strong)"/>
+            <g font-family="var(--font-mono)" font-size="10" fill="var(--ink-soft)" text-anchor="middle">
+              <text x="27" y="128">2</text><text x="89" y="128">+</text><text x="151" y="128">3</text>
+              <text x="250" y="128" font-weight="700">new block</text>
+            </g>
+          </g>
+        </svg>
+        <div class="pcard-foot">
+          <span>Deep KV, but pays all <i>T</i> passes</span>
+          <strong>Flat ~3.3&times; wall as <i>T</i> &rarr; 64</strong>
+        </div>
+      </div>
+
+      <div class="pcard early">
+        <div class="pcard-head">
+          <span class="pcard-title">(b) Early Exit (First <i>K</i>)</span>
+          <span class="pcard-badge">Truncates context KV</span>
+        </div>
+        <svg viewBox="0 0 340 156" role="img" aria-label="Early exit stops at pass 2, leaving P3 and P4 empty for all context tokens">
+          <g font-family="var(--font-mono)" font-size="10.5" fill="var(--muted)">
+            <text x="6" y="26">P4</text><text x="6" y="54">P3</text><text x="6" y="82">P2</text><text x="6" y="110">P1</text>
+          </g>
+          <g transform="translate(32,12)">
+            <!-- Dead P3/P4 -->
+            <rect x="0" y="0" width="54" height="20" rx="4" fill="none" stroke="var(--line)" stroke-dasharray="3 2"/>
+            <rect x="62" y="0" width="54" height="20" rx="4" fill="none" stroke="var(--line)" stroke-dasharray="3 2"/>
+            <rect x="124" y="0" width="54" height="20" rx="4" fill="none" stroke="var(--line)" stroke-dasharray="3 2"/>
+            <rect x="206" y="0" width="88" height="20" rx="4" fill="none" stroke="var(--line)" stroke-dasharray="3 2"/>
+            <rect x="0" y="28" width="54" height="20" rx="4" fill="none" stroke="var(--line)" stroke-dasharray="3 2"/>
+            <rect x="62" y="28" width="54" height="20" rx="4" fill="none" stroke="var(--line)" stroke-dasharray="3 2"/>
+            <rect x="124" y="28" width="54" height="20" rx="4" fill="none" stroke="var(--line)" stroke-dasharray="3 2"/>
+            <rect x="206" y="28" width="88" height="20" rx="4" fill="none" stroke="var(--line)" stroke-dasharray="3 2"/>
+            <text x="90" y="23" font-family="var(--font-mono)" font-size="9.5" fill="var(--crimson)" text-anchor="middle" font-weight="700">DEEP KV MISSING</text>
+            <!-- Shallow P1/P2 -->
+            <rect x="0" y="56" width="54" height="20" rx="4" fill="var(--amber-soft)" stroke="var(--amber-border)"/>
+            <rect x="62" y="56" width="54" height="20" rx="4" fill="var(--amber-soft)" stroke="var(--amber-border)"/>
+            <rect x="124" y="56" width="54" height="20" rx="4" fill="var(--amber-soft)" stroke="var(--amber-border)"/>
+            <rect x="0" y="84" width="54" height="20" rx="4" fill="var(--amber-soft)" stroke="var(--amber-border)"/>
+            <rect x="62" y="84" width="54" height="20" rx="4" fill="var(--amber-soft)" stroke="var(--amber-border)"/>
+            <rect x="124" y="84" width="54" height="20" rx="4" fill="var(--amber-soft)" stroke="var(--amber-border)"/>
+            <line x1="192" y1="-4" x2="192" y2="128" stroke="var(--line-strong)" stroke-dasharray="3 3"/>
+            <rect id="he2" class="kv-slot" x="206" y="56" width="88" height="20" rx="4" fill="var(--bg-subtle)" stroke="var(--line-strong)"/>
+            <rect id="he1" class="kv-slot" x="206" y="84" width="88" height="20" rx="4" fill="var(--bg-subtle)" stroke="var(--line-strong)"/>
+            <g font-family="var(--font-mono)" font-size="10" fill="var(--ink-soft)" text-anchor="middle">
+              <text x="27" y="128">2</text><text x="89" y="128">+</text><text x="151" y="128">3</text>
+              <text x="250" y="128" font-weight="700">new block</text>
+            </g>
+          </g>
+        </svg>
+        <div class="pcard-foot">
+          <span>2 serial calls, shallow prefix</span>
+          <strong>&minus;16.9 pts GSM8K drop</strong>
+        </div>
+      </div>
+
+      <div class="pcard ours">
+        <div class="pcard-head">
+          <span class="pcard-title">(c) Late Entry + Wake (Ours)</span>
+          <span class="pcard-badge" id="hpBadgeOurs">2 calls + Wake GEMM &check;</span>
+        </div>
+        <svg viewBox="0 0 340 156" role="img" aria-label="Late Entry + Wake runs final K passes on new block while completing 1 to T wake in the same calls">
+          <g font-family="var(--font-mono)" font-size="10.5" fill="var(--muted)">
+            <text x="6" y="26">P4</text><text x="6" y="54">P3</text><text x="6" y="82">P2</text><text x="6" y="110">P1</text>
+          </g>
+          <g transform="translate(32,12)">
+            <!-- Verified col 1 -->
+            <rect x="0" y="0" width="54" height="20" rx="4" fill="var(--emerald-soft)" stroke="var(--emerald)"/>
+            <rect x="0" y="28" width="54" height="20" rx="4" fill="var(--emerald-soft)" stroke="var(--emerald)"/>
+            <rect x="0" y="56" width="54" height="20" rx="4" fill="var(--emerald-soft)" stroke="var(--emerald)"/>
+            <rect x="0" y="84" width="54" height="20" rx="4" fill="var(--emerald-soft)" stroke="var(--emerald)"/>
+            <!-- Wake Stage 2 col -->
+            <rect id="hw2_4" class="kv-slot" x="62" y="0" width="54" height="20" rx="4" fill="var(--emerald-soft)" stroke="var(--emerald)"/>
+            <rect id="hw2_3" class="kv-slot" x="62" y="28" width="54" height="20" rx="4" fill="var(--emerald-soft)" stroke="var(--emerald)"/>
+            <rect x="62" y="56" width="54" height="20" rx="4" fill="var(--emerald-soft)" stroke="var(--emerald)"/>
+            <rect x="62" y="84" width="54" height="20" rx="4" fill="var(--emerald-soft)" stroke="var(--emerald)"/>
+            <!-- Wake Stage 1 col -->
+            <rect x="124" y="0" width="54" height="20" rx="4" fill="var(--amber-soft)" stroke="var(--amber)"/>
+            <rect x="124" y="28" width="54" height="20" rx="4" fill="var(--amber-soft)" stroke="var(--amber)"/>
+            <rect id="hw1_2" class="kv-slot" x="124" y="56" width="54" height="20" rx="4" fill="var(--bg-subtle)" stroke="var(--line-strong)"/>
+            <rect id="hw1_1" class="kv-slot" x="124" y="84" width="54" height="20" rx="4" fill="var(--bg-subtle)" stroke="var(--line-strong)"/>
+            <line x1="192" y1="-4" x2="192" y2="128" stroke="var(--line-strong)" stroke-dasharray="3 3"/>
+            <!-- Active Late Entry col: skips P1-P2, enters P3-P4 -->
+            <rect id="hl4" class="kv-slot" x="206" y="0" width="88" height="20" rx="4" fill="var(--bg-subtle)" stroke="var(--line-strong)"/>
+            <rect id="hl3" class="kv-slot" x="206" y="28" width="88" height="20" rx="4" fill="var(--bg-subtle)" stroke="var(--line-strong)"/>
+            <rect x="206" y="56" width="88" height="20" rx="4" fill="none" stroke="var(--line)" stroke-dasharray="3 2"/>
+            <rect x="206" y="84" width="88" height="20" rx="4" fill="none" stroke="var(--line)" stroke-dasharray="3 2"/>
+            <text x="250" y="79" font-family="var(--font-mono)" font-size="9" fill="var(--muted)" text-anchor="middle">skip P1, P2</text>
+            <path d="M 299 114 C 307 92, 307 58, 297 40" fill="none" stroke="var(--emerald)" stroke-width="1.8"/>
+            <g font-family="var(--font-mono)" font-size="9.5" fill="var(--ink-soft)" text-anchor="middle">
+              <text x="27" y="128" fill="var(--emerald)" font-weight="700">verif.</text>
+              <text x="89" y="128">wake 2</text>
+              <text x="151" y="128">wake 1</text>
+              <text x="250" y="128" font-weight="700" fill="var(--indigo)">enter P3&rarr;P4</text>
+            </g>
+          </g>
+        </svg>
+        <div class="pcard-foot">
+          <span>0 extra serial calls &middot; same GEMM</span>
+          <strong>5.2&times; to 8.4&times; greedy-exact</strong>
+        </div>
+      </div>
+    </div>
+
+    <!-- 4 Headline KPIs -->
+    <div class="kpi-grid">
+      <div class="kpi-card">
+        <div class="kpi-num em">5.20<small>&times;</small> <span style="font-size:1.15rem;color:var(--muted)">/</span> 6.82<small>&times;</small></div>
+        <div class="kpi-lbl">Ouro-2.6B (<i>T</i> = 4, GSM8K)</div>
+        <div class="kpi-desc"><strong>5.20&times; (+26%)</strong> greedy-exact at &tau;&nbsp;=&nbsp;0 (.867 acc, 0.007% diff); <strong>5.52&ndash;5.83&times;</strong> on math at &tau;&nbsp;&isin;&nbsp;[.15,&nbsp;.30]; <strong>6.82&times;</strong> at &tau;&nbsp;=&nbsp;&infin; (+16.9 pts vs. early exit).</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-num em">6.09<small>&times;</small> &rarr; 8.42<small>&times;</small></div>
+        <div class="kpi-lbl">Huginn-3.5B Greedy-Exact (&tau; = 0)</div>
+        <div class="kpi-desc"><strong>+82% to +153%</strong> faster than full-depth <i>K</i>&nbsp;=&nbsp;<i>T</i> block across <i>T</i>&nbsp;=&nbsp;32&nbsp;&rarr;&nbsp;64 (7.69&times; on MBPP at <i>T</i>&nbsp;=&nbsp;32; <strong>10.57&times;&ndash;12.50&times;</strong> at &tau;&nbsp;=&nbsp;&infin;).</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-num in">21.5<small>&times; fewer</small></div>
+        <div class="kpi-lbl">Wake Rollbacks as <i>T</i> = 8 &rarr; 64</div>
+        <div class="kpi-desc">Holding Huginn-3.5B weights fixed, <i>K</i>&nbsp;=&nbsp;<i>T</i>/4 rollbacks drop <strong>12.46 &rarr; 0.58 per 100 tokens</strong> as deeper loops stabilize late states.</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-num">8.3<small>% MAPE</small></div>
+        <div class="kpi-lbl">Zero-Shot H100 Roofline Law</div>
+        <div class="kpi-desc">Calibrated strictly on <i>K</i>&nbsp;=&nbsp;4; explains free wake rows at batch&nbsp;1 (99 &ll; 348 ridge rows) and matches <strong>11/12</strong> optimal <i>B</i>*(<i>C</i>) across <i>C</i>&nbsp;&isin;&nbsp;[1,&nbsp;32].</div>
+      </div>
+    </div>
+  </div>
+</header>
+
+<!-- ==================== INTERACTIVE ANIMATION STUDIO ==================== -->
+<section class="sec" id="how-it-works">
+  <div class="wide">
+    <div class="sec-head" style="max-width:52rem">
+      <p class="eyebrow">Interactive Architecture Walkthrough</p>
+      <h2>How Our Converged Method Works Inside One Static CUDA Graph</h2>
+      <p class="sec-lead">
+        Watch how <strong>tentative late-pass block decoding</strong>, <strong>piggybacked 1&nbsp;&rarr;&nbsp;<i>T</i> KV cache completion</strong>, and <strong>same-GEMM Wake verification</strong> operate together at <i>T</i>&nbsp;=&nbsp;4, <i>K</i>&nbsp;=&nbsp;2. Switch scenarios or drag the live tolerance knob <code>&tau;</code> below to see how a single engine unifies greedy-exact (&tau;&nbsp;=&nbsp;0), margin-gated (&tau;&nbsp;&gt;&nbsp;0), and non-rollback lossy (&tau;&nbsp;=&nbsp;&infin;) decoding.
+      </p>
+    </div>
+
+    <div class="studio" id="wakeStudio">
+      <div class="studio-top">
+        <div class="scen-tabs" role="tablist" aria-label="Animation scenario">
+          <button type="button" class="scen-btn active" data-scen="slip">1. Uncertain Slip Caught &amp; Rolled Back (&Delta;z = 2.40)</button>
+          <button type="button" class="scen-btn" data-scen="tie">2. Benign Near-Tie &amp; Margin Gating (&Delta;z = 0.12)</button>
+          <button type="button" class="scen-btn" data-scen="cruise">3. Steady Cruise (&gt;98% Tokens Match, 0 Rollback)</button>
+        </div>
+        <div class="tau-box">
+          <span class="tau-lbl">Wake Tolerance &tau;:</span>
+          <div class="tau-seg" role="group" aria-label="Logit-margin tolerance tau">
+            <button type="button" class="tau-btn active" data-tau="0">&tau; = 0 &middot; Exact</button>
+            <button type="button" class="tau-btn" data-tau="0.25">&tau; = 0.25 &middot; Margin</button>
+            <button type="button" class="tau-btn" data-tau="inf">&tau; = &infin; &middot; Lossy</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="stepper-bar">
+        <div class="play-ctrls">
+          <button type="button" class="ctrl-btn play-primary" id="stPlayBtn" aria-label="Play or pause animation">&#10074;&#10074; Pause</button>
+          <button type="button" class="ctrl-btn" id="stPrevBtn" aria-label="Previous step">&larr; Prev</button>
+          <button type="button" class="ctrl-btn" id="stNextBtn" aria-label="Next step">Next &rarr;</button>
+        </div>
+        <div class="step-pills" id="stStepPills"></div>
+      </div>
+
+      <div class="studio-body">
+        <div class="stage-left">
+          <!-- Zone A: Token Sequence Tape -->
+          <div class="tape-box">
+            <div class="zone-hdr">
+              <span class="zone-title">A. Sequence Partition: Verified Prefix (&lt; u) vs. Tentative Frontier</span>
+              <div class="legend-inline">
+                <span><i class="sw ver"></i>Verified <i>T</i>-pass</span>
+                <span><i class="sw tent"></i>Tentative (in wake)</span>
+                <span><i class="sw cand"></i>Active block (P3, P4)</span>
+                <span><i class="sw rb"></i>Rolled back</span>
+              </div>
+            </div>
+            <div class="token-tape" id="stTape"></div>
+          </div>
+
+          <!-- Zone B: 4 x 8 Pass KV Matrix -->
+          <div class="matrix-box">
+            <div class="zone-hdr">
+              <span class="zone-title">B. Pass-Aligned KV Cache Matrix (P1 &rarr; P4 Across Token Positions)</span>
+              <span class="mono" style="font-size:.72rem;color:var(--muted)" id="stMatrixNote">P3*, P4* = provisional embedding KV</span>
+            </div>
+            <div class="kv-matrix-wrap">
+              <div class="kv-grid" id="stMatrix"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Zone C: GPU Batch & Shared Output GEMM -->
+        <div class="gpu-box">
+          <div>
+            <div class="zone-hdr">
+              <span class="zone-title">C. Inside One H100 Step (<i>K</i> = 2 Serial Calls)</span>
+              <span class="mono" style="font-size:.72rem;color:var(--emerald);font-weight:700">0 extra layer calls</span>
+            </div>
+            <div class="call-card">
+              <div style="display:flex;justify-content:space-between;font-size:.8rem;font-weight:600">
+                <span>Packed Per-Call Query Batch</span>
+                <span class="mono" id="stBatchCount" style="color:var(--indigo)">81 / 348 ridge rows</span>
+              </div>
+              <div class="batch-meter" aria-label="GPU batch composition">
+                <div class="bm-seg bm-front" id="bmFront" style="width:68%">81 block</div>
+                <div class="bm-seg bm-w1" id="bmW1" style="width:0%"></div>
+                <div class="bm-seg bm-w2" id="bmW2" style="width:0%"></div>
+              </div>
+              <div class="ridge-tag">
+                <span id="stCallDesc" style="color:var(--ink-soft);font-weight:600">Call 1: P3 (block) &middot; Call 2: P4 (block)</span>
+                <span>Inside H100 HBM weight-streaming floor (&ll; 348 ridge rows/pass)</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="gemm-card" id="stGemmCard">
+            <div class="gemm-head">
+              <span>Shared Single <code>lm_head</code> Output GEMM</span>
+              <span id="stGemmRows" style="color:var(--muted)">81 rows</span>
+            </div>
+            <div class="gemm-eq" id="stGemmEq">Waiting for first wake group to finish P1&rarr;P4...</div>
+            <span class="gemm-verdict idle" id="stGemmVerdict">No finished wake group this step</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Zone D: Narration & Live Telemetry -->
+      <div class="studio-foot">
+        <div>
+          <div class="narration-title" id="stNarrTitle">Step 1</div>
+          <p class="narration-body" id="stNarrBody"></p>
+        </div>
+        <div class="telem-strip">
+          <div class="telem-pill">
+            <small>Serial Calls</small>
+            <strong class="em" id="tlCalls">2 / step</strong>
+          </div>
+          <div class="telem-pill">
+            <small>Verified (&lt; u)</small>
+            <strong id="tlVer">3 toks</strong>
+          </div>
+          <div class="telem-pill">
+            <small>Active Regime</small>
+            <strong class="em" id="tlRegime">Greedy-Exact</strong>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="pillar-grid">
+      <div class="pillar-card">
+        <span class="pillar-tag">Critical Path &middot; Sec. 3.2</span>
+        <h3>1. Late-Pass Block Verification</h3>
+        <p>Whereas LoopSpec, WaveFront, DAS, and LoopAhead accelerate <em>drafting</em> via shallow initial passes while still verifying every token through all <i>T</i> passes, our (1+<i>B</i>)<sup>2</sup> block compresses <strong>critical-path verification itself</strong> to the final <i>K</i>&nbsp;&lt;&nbsp;<i>T</i> passes.</p>
+      </div>
+      <div class="pillar-card">
+        <span class="pillar-tag">Background Wake &middot; Sec. 3.3</span>
+        <h3>2. Causal &lceil;<i>T</i> / <i>K</i>&rceil; Cache Completion</h3>
+        <p>Because looped layers share weights across passes, tentative groups advance <i>K</i> true passes per step inside ongoing forward calls. Chronological ordering guarantees every group reads exact earlier-group pass-<i>k</i> KV states.</p>
+      </div>
+      <div class="pillar-card">
+        <span class="pillar-tag">Proposition 1 &middot; Sec. 3.4</span>
+        <h3>3. Exactness &amp; Strict Progress</h3>
+        <p>Projecting finished <i>T</i>-pass wake rows inside the existing <code>lm_head</code> GEMM guarantees bit-for-bit <i>T</i>-pass greedy equivalence in exact arithmetic at &tau;&nbsp;=&nbsp;0 (verified on 258/258 adversarial <code>fp64</code> tests) and strict prefix progress <i>i</i>*+1&nbsp;&gt;&nbsp;<i>u</i>.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ==================== DISCOVERY & MECHANISM ==================== -->
+<section class="sec" id="discovery">
+  <div class="wide">
+    <div class="sec-head" style="max-width:50rem">
+      <p class="eyebrow">Core Scientific Finding &middot; Section 2</p>
+      <h2>Why Final Passes Beat Initial Passes, and Where Errors Hide</h2>
+      <p class="sec-lead">
+        Raw late entry fails on unadapted checkpoints only because pass&nbsp;4 expects layer-normalized states (norms 37&ndash;51) rather than raw embeddings (norm 0.76). Once lightweight Stage-2 fine-tuning aligns that interface, <strong>coherent pass-aligned (<i>K</i>,&nbsp;<i>V</i>) context</strong> substitutes for skipped local passes on &gt;98% of positions, isolating residual discrepancies to the <strong>6% uncertain tail</strong>.
+      </p>
+    </div>
+
+    <div class="two-col">
+      <div class="card">
+        <h3>Pass-Coherent (<i>K</i>, <i>V</i>) &amp; Cross-Scale Asymmetry</h3>
+        <p class="card-sub">GSM8K teacher-forced next-token agreement with full <i>T</i>-pass decoding</p>
+        <div class="bar-list">
+          <div class="bar-row">
+            <span class="bar-lbl">Adapted <i>K</i> = 2 (ours)<small>Ouro-2.6B &middot; 1.000 on confident &ge;.95</small></span>
+            <div class="bar-trk"><div class="bar-fill em" style="width:98.4%"></div></div>
+            <span class="bar-val" style="color:var(--emerald)">.984</span>
+          </div>
+          <div class="bar-row">
+            <span class="bar-lbl">Adapted <i>K</i> = 1 over <i>D</i> = 4<small>1 late pass &gt; 2 early passes (.954)</small></span>
+            <div class="bar-trk"><div class="bar-fill em" style="width:96.2%"></div></div>
+            <span class="bar-val" style="color:var(--emerald)">.962</span>
+          </div>
+          <div class="bar-row">
+            <span class="bar-lbl">Early Exit <i>K</i> = 2 over <i>D</i> = 2<small>Ouro-2.6B &middot; shallow 2-pass context</small></span>
+            <div class="bar-trk"><div class="bar-fill am" style="width:95.4%"></div></div>
+            <span class="bar-val" style="color:var(--amber)">.954</span>
+          </div>
+          <div class="bar-row">
+            <span class="bar-lbl">Pass-4 <i>K</i> + Pass-1 <i>V</i> swap<small>Aligned query, shallow values</small></span>
+            <div class="bar-trk"><div class="bar-fill am" style="width:29.6%"></div></div>
+            <span class="bar-val">.296</span>
+          </div>
+          <div class="bar-row">
+            <span class="bar-lbl">Pass-1 <i>K</i> + Pass-4 <i>V</i> swap<small>Cross-pass mismatch &rarr; 100% EOS</small></span>
+            <div class="bar-trk"><div class="bar-fill cr" style="width:2%"></div></div>
+            <span class="bar-val" style="color:var(--crimson)">.000</span>
+          </div>
+          <div class="bar-row" style="padding-top:.35rem;border-top:1px solid var(--line)">
+            <span class="bar-lbl">Huginn-3.5B: 4 late passes<small>Beats 8 trained early passes (.944)</small></span>
+            <div class="bar-trk"><div class="bar-fill in" style="width:95.4%"></div></div>
+            <span class="bar-val" style="color:var(--indigo)">.954</span>
+          </div>
+        </div>
+        <p style="font-size:.82rem;color:var(--muted)">Stage-2 aligns <i>K</i>&nbsp;=&nbsp;1 queries onto the pass-4 manifold (<strong>linear CKA .961</strong> vs. .273&ndash;.365 unadapted); tokens &gt;64 positions back supply <strong>53%</strong> of IFEval's total context-depth gain.</p>
+      </div>
+
+      <div class="card">
+        <h3>Discrepancies Localize to the 6% Uncertain Tail</h3>
+        <p class="card-sub">Ouro-2.6B <code>fp32</code> agreement stratified by full-depth confidence <i>p</i><sub>max</sub> (30,736 positions)</p>
+        <svg class="chart-svg" viewBox="0 0 430 232" role="img" aria-label="Confidence-binned agreement chart">
+          <rect x="46" y="16" width="84" height="170" fill="var(--emerald-soft)" opacity="0.65" rx="4"/>
+          <text x="53" y="31" font-family="var(--font-sans)" font-size="10.2" font-weight="700" fill="var(--emerald)">Wake target zone</text>
+          <text x="53" y="43" font-family="var(--font-sans)" font-size="9.2" fill="var(--muted)">(6% uncertain tail)</text>
+          <g stroke="var(--line)" stroke-width="1">
+            <line x1="46" x2="412" y1="22" y2="22"/><line x1="46" x2="412" y1="74" y2="74"/>
+            <line x1="46" x2="412" y1="126" y2="126"/><line x1="46" x2="412" y1="178" y2="178"/>
+          </g>
+          <g font-family="var(--font-mono)" font-size="10" fill="var(--muted)" text-anchor="end">
+            <text x="40" y="26">1.00</text><text x="40" y="78">.80</text><text x="40" y="130">.60</text><text x="40" y="182">.40</text>
+          </g>
+          <!-- X ticks: 76, 180, 286, 392 -->
+          <g font-family="var(--font-mono)" font-size="10" fill="var(--ink-soft)" text-anchor="middle">
+            <text x="76" y="203">&lt;.50</text><text x="76" y="216" fill="var(--muted)" font-size="9">(6%)</text>
+            <text x="180" y="203">.50&ndash;.80</text><text x="180" y="216" fill="var(--muted)" font-size="9">(14%)</text>
+            <text x="286" y="203">.80&ndash;.95</text><text x="286" y="216" fill="var(--muted)" font-size="9">(12%)</text>
+            <text x="392" y="203">&ge;.95</text><text x="392" y="216" fill="var(--muted)" font-size="9">(68%)</text>
+          </g>
+          <!-- Unadapted K=1: .358, .543, .678, .769 -->
+          <polyline fill="none" stroke="var(--faint)" stroke-width="2" stroke-dasharray="3 3" points="76,189 180,141 286,106 392,82"/>
+          <!-- 1-pass EE: .452, .684, .879, .983 -->
+          <polyline fill="none" stroke="var(--amber)" stroke-width="2.1" stroke-dasharray="5 3" points="76,164 180,104 286,53 392,26"/>
+          <!-- Adapted K=1: .692, .882, .985, .998 -->
+          <polyline fill="none" stroke="var(--indigo)" stroke-width="2.2" points="76,102 180,53 286,26 392,22.5"/>
+          <!-- Adapted K=2: .827, .959, .999, 1.000 -->
+          <polyline fill="none" stroke="var(--emerald)" stroke-width="2.6" points="76,67 180,33 286,22.2 392,22"/>
+          <g fill="var(--emerald)"><circle cx="76" cy="67" r="4"/><circle cx="180" cy="33" r="4"/><circle cx="286" cy="22.2" r="4"/><circle cx="392" cy="22" r="4"/></g>
+          <g fill="var(--indigo)"><circle cx="76" cy="102" r="3.6"/><circle cx="180" cy="53" r="3.6"/><circle cx="286" cy="26" r="3.6"/><circle cx="392" cy="22.5" r="3.6"/></g>
+          <text x="275" y="16" font-family="var(--font-sans)" font-size="10.2" font-weight="700" fill="var(--emerald)" text-anchor="middle">Adapted K=2 (1.000 @ &ge;.95)</text>
+          <text x="195" y="64" font-family="var(--font-sans)" font-size="10" font-weight="700" fill="var(--indigo)">Adapted K=1 (.998)</text>
+          <text x="292" y="72" font-family="var(--font-sans)" font-size="10" font-weight="700" fill="var(--amber)">1-pass early exit</text>
+          <text x="305" y="122" font-family="var(--font-sans)" font-size="10" font-weight="600" fill="var(--muted)">Unadapted K=1</text>
+        </svg>
+        <p style="font-size:.82rem;color:var(--muted)">On the <strong>68%</strong> of tokens where full depth is confident (&ge;.95), adapted <i>K</i>&nbsp;=&nbsp;2 matches at <strong>1.000</strong>. Wake verification only needs to intervene inside the rare <strong>6%</strong> uncertain tail (&le;2.2 rollbacks / 100 tokens).</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ==================== UNIFIED WAKE SPECTRUM ==================== -->
+<section class="sec" id="wake-results">
+  <div class="wide">
+    <div class="sec-head" style="max-width:52rem">
+      <p class="eyebrow">Unified Spectrum &middot; Section 4.5 (Table 7)</p>
+      <h2>Breaking Past the <i>K</i> = <i>T</i> Block Ceiling With Greedy-Exact Fidelity</h2>
+      <p class="sec-lead">
+        Across every benchmark on both Ouro-2.6B (<i>T</i>&nbsp;=&nbsp;4) and Huginn-3.5B (<i>T</i>&nbsp;=&nbsp;32), <strong>Exact Wake (&tau;&nbsp;=&nbsp;0)</strong> accelerates decoding well beyond full-depth <i>K</i>&nbsp;=&nbsp;<i>T</i> block verification while preserving greedy-exact <i>T</i>-pass predictions, and <strong>Margin Wake (&tau;&nbsp;&gt;&nbsp;0)</strong> filters benign near-tie flips to unlock further speedups with zero accuracy loss.
+      </p>
+    </div>
+
+    <div class="model-switch" role="tablist" aria-label="Filter Wake table by model">
+      <button type="button" class="ms-btn active" data-wfilter="all">All Models (11 Complete Rows)</button>
+      <button type="button" class="ms-btn" data-wfilter="ouro">Ouro-2.6B (T = 4)</button>
+      <button type="button" class="ms-btn" data-wfilter="huginn">Huginn-3.5B (T = 32)</button>
+    </div>
+
+    <div class="table-card">
+      <table class="data-tbl" id="wakeTable">
+        <thead>
+          <tr>
+            <th>Benchmark</th>
+            <th>Budget</th>
+            <th>Seq. <i>T</i> (tok/s)</th>
+            <th><i>K</i> = <i>T</i> Block</th>
+            <th>Exact Wake (&tau; = 0)</th>
+            <th>rb / 100t</th>
+            <th>Margin Wake (&tau; &gt; 0)</th>
+            <th>rb / 100t</th>
+            <th>Lossy (&tau; = &infin;)</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr class="group-hdr" data-m="ouro"><td colspan="9">Ouro-2.6B (<i>T</i> = 4 passes &middot; teacher-forced &tau; = 0 audit diff: 0.007% GSM8K, 0.09% MATH500, 0.025% MBPP)</td></tr>
+          <tr data-m="ouro"><td><strong>GSM8K</strong></td><td class="mono">K = 3</td><td>.868 <small>(62.3)</small></td><td>.867 &middot; 4.13&times;</td><td><strong>.867</strong> &middot; <span class="pill-sp em">4.19&times; (+2%)</span></td><td>1.14</td><td><strong>.870</strong> <small>(&tau;=.25)</small> &middot; <span class="pill-sp am">4.55&times; (+10%)</span></td><td>0.29</td><td>.853 &middot; <span class="pill-sp in">5.18&times;</span></td></tr>
+          <tr data-m="ouro"><td><strong>GSM8K</strong></td><td class="mono">K = 2</td><td>.868 <small>(62.3)</small></td><td>.867 &middot; 4.13&times;</td><td><strong>.867</strong> &middot; <span class="pill-sp em">5.20&times; (+26%)</span></td><td>2.02</td><td><strong>.877</strong> <small>(&tau;=.15)</small> &middot; <span class="pill-sp am">5.52&times; (+34%)</span></td><td>1.26</td><td>.842 &middot; <span class="pill-sp in">6.82&times;</span></td></tr>
+          <tr data-m="ouro"><td><strong>MATH500</strong></td><td class="mono">K = 2</td><td>.532 <small>(62.7)</small></td><td>.526 &middot; 4.08&times;</td><td><strong>.526</strong> &middot; <span class="pill-sp em">5.23&times; (+28%)</span></td><td>2.11</td><td><strong>.548</strong> <small>(&tau;=.30)</small> &middot; <span class="pill-sp am">5.83&times; (+43%)</span></td><td>0.96</td><td>.492 &middot; <span class="pill-sp in">6.61&times;</span></td></tr>
+          <tr data-m="ouro"><td><strong>IFEval</strong></td><td class="mono">K = 2</td><td>.732 <small>(63.8)</small></td><td>.739 &middot; 2.15&times;</td><td><strong>.739</strong> &middot; <span class="pill-sp em">2.66&times; (+24%)</span></td><td>5.98</td><td>.719 <small>(&tau;=.15)</small> &middot; <span class="pill-sp am">2.94&times; (+36%)</span></td><td>4.08</td><td>.699 &middot; <span class="pill-sp in">3.76&times;</span></td></tr>
+          <tr data-m="ouro"><td><strong>MBPP</strong></td><td class="mono">K = 2</td><td>.616 <small>(63.4)</small></td><td>.626 &middot; 3.79&times;</td><td><strong>.626</strong> &middot; <span class="pill-sp em">4.61&times; (+22%)</span></td><td>2.00</td><td><strong>.618</strong> <small>(&tau;=.30)</small> &middot; <span class="pill-sp am">5.13&times; (+35%)</span></td><td>0.70</td><td>.602 &middot; <span class="pill-sp in">6.20&times;</span></td></tr>
+
+          <tr class="group-hdr" data-m="huginn"><td colspan="9">Huginn-3.5B (<i>T</i> = 32 Core passes &middot; unified CUDA-graphed paged FlashAttention-3 engine)</td></tr>
+          <tr data-m="huginn"><td><strong>GSM8K</strong></td><td class="mono">K = 16</td><td>.391 <small>(21.9)</small></td><td>.394 &middot; 3.35&times;</td><td><strong>.396</strong> &middot; <span class="pill-sp em">5.21&times; (+56%)</span></td><td>0.48</td><td><strong>.404</strong> <small>(&tau;=.25)</small> &middot; <span class="pill-sp am">5.42&times; (+62%)</span></td><td>0.05</td><td>.399 &middot; <span class="pill-sp in">5.80&times;</span></td></tr>
+          <tr data-m="huginn"><td><strong>GSM8K</strong></td><td class="mono">K = 8</td><td>.391 <small>(21.9)</small></td><td>.394 &middot; 3.35&times;</td><td><strong>.392</strong> &middot; <span class="pill-sp em">6.09&times; (+82%)</span></td><td>2.22</td><td><strong>.397</strong> <small>(&tau;=.25)</small> &middot; <span class="pill-sp am">7.15&times; (+114%)</span></td><td>0.88</td><td>.353 &middot; <span class="pill-sp in">9.13&times;</span></td></tr>
+          <tr data-m="huginn"><td><strong>IFEval</strong></td><td class="mono">K = 16</td><td>.560 <small>(21.5)</small></td><td>.547 &middot; 2.91&times;</td><td><strong>.547</strong> &middot; <span class="pill-sp em">4.85&times; (+66%)</span></td><td>0.37</td><td><strong>.560</strong> <small>(&tau;=.25)</small> &middot; <span class="pill-sp am">5.10&times; (+75%)</span></td><td>0.02</td><td>.562 &middot; <span class="pill-sp in">5.21&times;</span></td></tr>
+          <tr data-m="huginn"><td><strong>IFEval</strong></td><td class="mono">K = 8</td><td>.560 <small>(21.5)</small></td><td>.547 &middot; 2.91&times;</td><td><strong>.556</strong> &middot; <span class="pill-sp em">6.46&times; (+122%)</span></td><td>2.03</td><td><strong>.543</strong> <small>(&tau;=.25)</small> &middot; <span class="pill-sp am">7.59&times; (+161%)</span></td><td>0.59</td><td>.542 &middot; <span class="pill-sp in">8.85&times;</span></td></tr>
+          <tr data-m="huginn"><td><strong>MBPP</strong></td><td class="mono">K = 16</td><td>.234 <small>(21.9)</small></td><td>.236 &middot; 4.47&times;</td><td><strong>.236</strong> &middot; <span class="pill-sp em">6.64&times; (+49%)</span></td><td>0.25</td><td><strong>.234</strong> <small>(&tau;=.25)</small> &middot; <span class="pill-sp am">6.79&times; (+52%)</span></td><td>0.03</td><td>.232 &middot; <span class="pill-sp in">7.80&times;</span></td></tr>
+          <tr data-m="huginn"><td><strong>MBPP</strong></td><td class="mono">K = 8</td><td>.234 <small>(21.9)</small></td><td>.236 &middot; 4.47&times;</td><td><strong>.236</strong> &middot; <span class="pill-sp em">7.69&times; (+72%)</span></td><td>1.41</td><td><strong>.236</strong> <small>(&tau;=.25)</small> &middot; <span class="pill-sp am">8.93&times; (+100%)</span></td><td>0.56</td><td>.228 &middot; <span class="pill-sp in">12.50&times;</span></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p style="margin-top:.75rem;font-size:.83rem;color:var(--muted)">
+      <strong>Drafter-Verifier Factorization:</strong> Replacing trained mask-placeholder proposals with a parameter-free 4/3/2-gram context-suffix drafter preserves or strengthens the multiplicative speedup from <i>K</i>&nbsp;&lt;&nbsp;<i>T</i> Wake verification (1.37&times; at &tau;&nbsp;=&nbsp;0 and 1.48&times; at &tau;&nbsp;=&nbsp;0.25 on Ouro GSM8K; 1.89&times; on Huginn MBPP; 2.25&times; on Huginn IFEval).
+    </p>
+  </div>
+</section>
+
+<!-- ==================== T-SCALING & ROOFLINE ==================== -->
+<section class="sec" id="scaling-roofline">
+  <div class="wide">
+    <div class="sec-head" style="max-width:52rem">
+      <p class="eyebrow">Depth Scaling &amp; Hardware Law &middot; Sections 4.6 &ndash; 4.7</p>
+      <h2>Deeper Recurrence Makes Wake Faster, and Roofline Explains Why</h2>
+      <p class="sec-lead">
+        Evaluating the <em>exact same</em> Huginn-3.5B checkpoint across <i>T</i>&nbsp;&isin;&nbsp;{8, 16, 32, 64} (36&nbsp;&rarr;&nbsp;260 effective layers) shows that while full-depth <i>K</i>&nbsp;=&nbsp;<i>T</i> block speedup saturates flatly near 3.3&times;, Wake rollback rates drop <strong>21.5&times;</strong> with depth, driving &tau;&nbsp;=&nbsp;0 speedups to <strong>8.42&times;</strong> (+153% over <i>K</i>&nbsp;=&nbsp;64 block) and &tau;&nbsp;=&nbsp;&infin; to <strong>10.57&times;</strong>.
+      </p>
+    </div>
+
+    <div class="two-col">
+      <!-- Huginn T-Scaling Dual Chart -->
+      <div class="card">
+        <h3>Huginn-3.5B Across <i>T</i> &isin; {8, 16, 32, 64} (GSM8K, <i>n</i> = 1,319)</h3>
+        <p class="card-sub">Speedup climbs with <i>T</i> as <i>K</i> = <i>T</i>/4 rollbacks fall 12.46 &rarr; 0.58 per 100 tokens</p>
+        <svg class="chart-svg" viewBox="0 0 440 236" role="img" aria-label="Huginn recurrence depth scaling chart">
+          <g stroke="var(--line)" stroke-width="1">
+            <line x1="44" x2="416" y1="20" y2="20"/><line x1="44" x2="416" y1="62" y2="62"/>
+            <line x1="44" x2="416" y1="104" y2="104"/><line x1="44" x2="416" y1="146" y2="146"/>
+            <line x1="44" x2="416" y1="188" y2="188"/>
+          </g>
+          <g font-family="var(--font-mono)" font-size="10" fill="var(--muted)" text-anchor="end">
+            <text x="38" y="24">12&times;</text><text x="38" y="66">9&times;</text><text x="38" y="108">6&times;</text><text x="38" y="150">3&times;</text><text x="38" y="192">0&times;</text>
+          </g>
+          <!-- X: 72 (T=8), 178 (T=16), 284 (T=32), 390 (T=64) -->
+          <g font-family="var(--font-mono)" font-size="9.8" fill="var(--ink-soft)" text-anchor="middle">
+            <text x="72" y="208">T=8 (36L)</text><text x="72" y="221" fill="var(--muted)" font-size="8.8">rb 12.5</text>
+            <text x="178" y="208">T=16 (68L)</text><text x="178" y="221" fill="var(--muted)" font-size="8.8">rb 6.25</text>
+            <text x="284" y="208">T=32 (132L)</text><text x="284" y="221" fill="var(--muted)" font-size="8.8">rb 2.22</text>
+            <text x="390" y="208">T=64 (260L)</text><text x="390" y="221" fill="var(--emerald)" font-weight="700" font-size="8.8">rb 0.58</text>
+          </g>
+          <!-- Y(sp) = 188 - (sp/12)*168 -->
+          <!-- K=T block: 2.86, 3.32, 3.35, 3.34 -->
+          <polyline fill="none" stroke="var(--muted)" stroke-width="2.1" points="72,148 178,141.5 284,141.1 390,141.2"/>
+          <!-- K=T/2 Exact Wake: 2.63, 4.21, 5.21, 5.42 -->
+          <polyline fill="none" stroke="var(--emerald)" stroke-width="2" stroke-dasharray="4 3" points="72,151.2 178,129.1 284,115.1 390,112.1"/>
+          <!-- K=T/4 Lossy: 4.82, 6.56, 9.13, 10.57 -->
+          <polyline fill="none" stroke="var(--indigo)" stroke-width="2.3" stroke-dasharray="6 3" points="72,120.5 178,96.2 284,60.2 390,40.0"/>
+          <!-- K=T/4 Exact Wake: 1.96, 3.47, 6.09, 8.42 -->
+          <polyline fill="none" stroke="var(--emerald)" stroke-width="2.8" points="72,160.6 178,139.4 284,102.7 390,70.1"/>
+          <g fill="var(--indigo)"><rect x="68" y="116.5" width="8" height="8" rx="1.5"/><rect x="174" y="92.2" width="8" height="8" rx="1.5"/><rect x="280" y="56.2" width="8" height="8" rx="1.5"/><rect x="386" y="36" width="8" height="8" rx="1.5"/></g>
+          <g fill="var(--emerald)"><circle cx="72" cy="160.6" r="4.3"/><circle cx="178" cy="139.4" r="4.3"/><circle cx="284" cy="102.7" r="4.3"/><circle cx="390" cy="70.1" r="4.6"/></g>
+          <text x="382" y="30" font-family="var(--font-mono)" font-size="9.5" font-weight="700" fill="var(--indigo)" text-anchor="end">10.57&times;</text>
+          <text x="384" y="62" font-family="var(--font-mono)" font-size="9.5" font-weight="700" fill="var(--emerald)" text-anchor="end">8.42&times;</text>
+          <text x="412" y="109" font-family="var(--font-mono)" font-size="9.2" font-weight="700" fill="var(--emerald)" text-anchor="end">5.42&times;</text>
+          <text x="412" y="154" font-family="var(--font-mono)" font-size="9.2" font-weight="600" fill="var(--muted)" text-anchor="end">3.34&times;</text>
+        </svg>
+        <div class="legend-inline" style="justify-content:center;margin-top:-.2rem">
+          <span style="color:var(--emerald);font-weight:700">&bull; Exact Wake K=T/4 (&tau;=0)</span>
+          <span style="color:var(--emerald)">&#9476; Exact Wake K=T/2</span>
+          <span style="color:var(--indigo);font-weight:600">&#9632; Lossy K=T/4 (&tau;=&infin;)</span>
+          <span>&#9472; Full K=T block</span>
+        </div>
+        <p style="font-size:.82rem;color:var(--muted)">At shallow <i>T</i>&nbsp;=&nbsp;8, <i>K</i>&nbsp;=&nbsp;2 is below the readout horizon (.030 lossy), yet &tau;&nbsp;=&nbsp;0 Wake catches every slip to restore <strong>.262 (+23.2 pts)</strong> while throttling speed gracefully; for <i>T</i>&nbsp;&ge;&nbsp;16, &tau;&nbsp;=&nbsp;0 climbs past the <i>K</i>&nbsp;=&nbsp;<i>T</i> wall up to <strong>8.42&times;</strong> (<strong>9.17&times;</strong> at &tau;&nbsp;=&nbsp;0.25).</p>
+      </div>
+
+      <!-- Physical H100 Roofline & Concurrency -->
+      <div class="card">
+        <h3>Physical H100 Roofline &amp; Multi-Request Serving (<i>C</i> &isin; [1, 32])</h3>
+        <p class="card-sub"><i>t</i><sub>pass</sub>(<i>M</i>, <i>C</i>) = ((<i>t</i><sub>0</sub> + &alpha;<sub>kv</sub><i>C</i>)<sup><i>p</i></sup> + (&beta;<sub>tc</sub><i>M</i>)<sup><i>p</i></sup>)<sup>1/<i>p</i></sup> calibrated strictly on <i>K</i> = 4</p>
+        <svg class="chart-svg" viewBox="0 0 440 236" role="img" aria-label="H100 Roofline ridge and dynamic block concurrency scaling">
+          <!-- Ridge illustration + concurrency envelope -->
+          <g stroke="var(--line)" stroke-width="1">
+            <line x1="48" x2="416" y1="24" y2="24"/><line x1="48" x2="416" y1="78" y2="78"/>
+            <line x1="48" x2="416" y1="132" y2="132"/><line x1="48" x2="416" y1="186" y2="186"/>
+          </g>
+          <g font-family="var(--font-mono)" font-size="10" fill="var(--muted)" text-anchor="end">
+            <text x="42" y="28">6.5&times;</text><text x="42" y="82">4.5&times;</text><text x="42" y="136">2.5&times;</text><text x="42" y="190">0.5&times;</text>
+          </g>
+          <!-- X: C = 1 (66), 2 (134), 4 (202), 8 (270), 16 (338), 32 (406) -->
+          <g font-family="var(--font-mono)" font-size="9.8" fill="var(--ink-soft)" text-anchor="middle">
+            <text x="66" y="206">C=1</text><text x="134" y="206">C=2</text><text x="202" y="206">C=4</text>
+            <text x="270" y="206">C=8</text><text x="338" y="206">C=16</text><text x="406" y="206">C=32</text>
+            <text x="236" y="224" font-family="var(--font-sans)" font-size="10.2" fill="var(--muted)">Concurrent active requests C on single H100 (Ouro-2.6B GSM8K)</text>
+          </g>
+          <!-- Parity 1.0x line: Y(1.0) = 186 - (0.5/6.0)*162 = 172.5 -->
+          <line x1="48" x2="416" y1="172.5" y2="172.5" stroke="var(--amber)" stroke-width="1.3" stroke-dasharray="4 3"/>
+          <text x="54" y="168" font-family="var(--font-mono)" font-size="9" fill="var(--amber)">1.0&times; continuous-batching AR parity</text>
+          <!-- Y(s) = 186 - ((s - 0.5)/6.0)*162 -->
+          <!-- K=4, B=8 fixed: 3.90, 3.66, 3.14, 2.02, 1.27, 0.77 -->
+          <polyline fill="none" stroke="var(--faint)" stroke-width="2" stroke-dasharray="3 3" points="66,94.2 134,100.7 202,114.7 270,145.0 338,165.2 406,178.7"/>
+          <!-- K=2 Dynamic B* envelope (B=8 -> B=4 -> B=2): 6.42, 6.01, 5.57, 4.33, 3.19, 2.31 -->
+          <polyline fill="none" stroke="var(--emerald)" stroke-width="2.8" points="66,26.2 134,37.2 202,49.1 270,82.6 338,113.4 406,137.1"/>
+          <!-- K=3 Dynamic B* envelope: 5.11, 4.60, 3.92, 3.12, 2.23, 1.71 -->
+          <polyline fill="none" stroke="var(--indigo)" stroke-width="2.2" points="66,61.5 134,75.3 202,93.7 270,115.3 338,139.3 406,153.3"/>
+          <g fill="var(--emerald)"><circle cx="66" cy="26.2" r="4.2"/><circle cx="134" cy="37.2" r="4.2"/><circle cx="202" cy="49.1" r="4.2"/><circle cx="270" cy="82.6" r="4.2"/><circle cx="338" cy="113.4" r="4.2"/><circle cx="406" cy="137.1" r="4.4"/></g>
+          <text x="406" y="128" font-family="var(--font-mono)" font-size="9.5" font-weight="700" fill="var(--emerald)" text-anchor="middle">2.31&times;</text>
+          <text x="406" y="164" font-family="var(--font-mono)" font-size="9.2" font-weight="700" fill="var(--indigo)" text-anchor="middle">1.71&times;</text>
+          <text x="378" y="183" font-family="var(--font-mono)" font-size="8.8" fill="var(--muted)" text-anchor="end">0.77&times;</text>
+        </svg>
+        <div class="legend-inline" style="justify-content:center;margin-top:-.2rem">
+          <span style="color:var(--emerald);font-weight:700">&bull; K=2 adaptive B&isin;{8,4,2}</span>
+          <span style="color:var(--indigo);font-weight:600">&#9472; K=3 adaptive B&isin;{8,4,2}</span>
+          <span>&#9476; Fixed K=4, B=8</span>
+        </div>
+        <p style="font-size:.82rem;color:var(--muted)">Skipping <i>T</i>&nbsp;&minus;&nbsp;<i>K</i> passes on rejected draft branches cuts per-step row-passes by <strong>39%</strong> (198 vs. 324 at <i>B</i>&nbsp;=&nbsp;8), sustaining <strong>2.31&times;</strong> decode (<strong>1.67&times;</strong> end-to-end with online prefills) at <i>C</i>&nbsp;=&nbsp;32 via pre-captured <i>B</i>&nbsp;=&nbsp;8&nbsp;&rarr;&nbsp;4&nbsp;&rarr;&nbsp;2 graphs.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ==================== FULL BENCHMARKS ==================== -->
+<section class="sec" id="benchmarks">
+  <div class="wide">
+    <div class="sec-head" style="max-width:52rem">
+      <p class="eyebrow">Comprehensive Evaluation &middot; Sections 4.1 &ndash; 4.4</p>
+      <h2>21,403 Test Examples Across Six Benchmarks and Full-Depth Baselines</h2>
+      <p class="sec-lead">
+        Before enabling Wake rollbacks, Sections 4.1&ndash;4.4 isolate pure pass-placement speedups (&tau;&nbsp;=&nbsp;&infin;) across all six benchmarks on Ouro-2.6B (against matched trained early exit, LoopSpec, and LoopAhead) and across four capability-active benchmarks on 32-pass Huginn-3.5B.
+      </p>
+    </div>
+
+    <div class="two-col">
+      <div class="table-card">
+        <h3 style="margin-bottom:.3rem;font-size:1.08rem">Ouro-2.6B (<i>T</i> = 4) vs. Full-Depth Speculative Decoders</h3>
+        <p style="font-size:.8rem;color:var(--muted);margin-bottom:.75rem">Normalized by fastest sequential engine per benchmark (62.4&ndash;67.2 tok/s; Table 5)</p>
+        <table class="data-tbl" style="min-width:480px">
+          <thead>
+            <tr><th>Task <small>(Seq.)</small></th><th>LoopSpec</th><th>LoopAhead</th><th>Ours K=4</th><th>Lossy K=3</th><th>Lossy K=2</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><strong>GSM8K</strong> <small>(.873)</small></td><td>2.84&times;</td><td>2.94&times;</td><td>3.82&times; <small>.867</small></td><td><strong style="color:var(--emerald)">4.80&times;</strong> <small>.851</small></td><td><strong style="color:var(--indigo)">6.35&times;</strong> <small>.839</small></td></tr>
+            <tr><td><strong>IFEval</strong> <small>(.732)</small></td><td>2.34&times;</td><td>2.67&times;</td><td>2.12&times; <small>.739</small></td><td><strong style="color:var(--emerald)">2.75&times;</strong> <small>.734</small></td><td><strong style="color:var(--indigo)">3.68&times;</strong> <small>.699</small></td></tr>
+            <tr><td><strong>MATH500</strong> <small>(.532)</small></td><td>2.85&times;</td><td>2.59&times;</td><td>4.11&times; <small>.526</small></td><td><strong style="color:var(--emerald)">5.07&times;</strong> <small>.536</small></td><td><strong style="color:var(--indigo)">6.63&times;</strong> <small>.492</small></td></tr>
+            <tr><td><strong>MBPP</strong> <small>(.616)</small></td><td>2.86&times;</td><td>2.90&times;</td><td>3.64&times; <small>.626</small></td><td><strong style="color:var(--emerald)">4.51&times;</strong> <small>.618</small></td><td><strong style="color:var(--indigo)">5.95&times;</strong> <small>.602</small></td></tr>
+            <tr><td><strong>BBH</strong> <small>(.577)</small></td><td>2.62&times;</td><td>3.25&times;</td><td>3.29&times; <small>.577</small></td><td><strong style="color:var(--emerald)">4.35&times;</strong> <small>.564</small></td><td><strong style="color:var(--indigo)">6.33&times;</strong> <small>.549</small></td></tr>
+            <tr><td><strong>MMLU-Pro</strong> <small>(.504)</small></td><td>2.75&times;</td><td>2.44&times;</td><td>3.56&times; <small>.504</small></td><td><strong style="color:var(--emerald)">4.56&times;</strong> <small>.501</small></td><td><strong style="color:var(--indigo)">6.12&times;</strong> <small>.488</small></td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="table-card">
+        <h3 style="margin-bottom:.3rem;font-size:1.08rem">Huginn-3.5B (<i>T</i> = 32) Middle-Recurrent Scaling</h3>
+        <p style="font-size:.8rem;color:var(--muted);margin-bottom:.75rem">8,871 items at <i>B</i> = 8; late entry drives +74% to +206% over <i>K</i> = 32 block (Table 6)</p>
+        <table class="data-tbl" style="min-width:460px">
+          <thead>
+            <tr><th>Task</th><th>Seq. <i>T</i>=32</th><th><i>K</i> = 32 Block</th><th><i>K</i> = 16 Late</th><th><i>K</i> = 8 Late</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><strong>GSM8K</strong></td><td>.393 <small>(21.7)</small></td><td>.397 &middot; 3.37&times;</td><td><strong style="color:var(--emerald)">.405 &middot; 5.84&times;</strong> <small>(+74%)</small></td><td><strong style="color:var(--indigo)">.354 &middot; 9.13&times;</strong> <small>(.369 @ 9.93&times;*)</small></td></tr>
+            <tr><td><strong>IFEval</strong></td><td>.551 <small>(21.6)</small></td><td>.551 &middot; 2.93&times;</td><td><strong style="color:var(--emerald)">.566 &middot; 5.24&times;</strong> <small>(+79%)</small></td><td><strong style="color:var(--indigo)">.542 &middot; 8.96&times;</strong> <small>(+206%)</small></td></tr>
+            <tr><td><strong>BBH</strong></td><td>.283 <small>(22.6)</small></td><td>.286 &middot; 3.79&times;</td><td><strong style="color:var(--emerald)">.287 &middot; 6.65&times;</strong> <small>(+75%)</small></td><td><strong style="color:var(--indigo)">.274 &middot; 10.86&times;</strong> <small>(+186%)</small></td></tr>
+            <tr><td><strong>MBPP</strong></td><td>.234 <small>(22.4)</small></td><td>.236 &middot; 4.46&times;</td><td><strong style="color:var(--emerald)">.232 &middot; 7.76&times;</strong> <small>(+74%)</small></td><td><strong style="color:var(--indigo)">.228 &middot; 12.41&times;</strong> <small>(+178%)</small></td></tr>
+          </tbody>
+        </table>
+        <p style="font-size:.79rem;color:var(--muted);margin-top:.7rem">*2-stage partial-cache <i>K</i>&nbsp;=&nbsp;8 (passes 17&rarr;32) reaches 9.93&times; (+9.7 pts vs. trained early exit at ~220 tok/s); enabling &tau;&nbsp;=&nbsp;0 Wake in Table 7 restores full .392 GSM8K accuracy at 6.09&times; (.397 at 7.15&times; for &tau;&nbsp;=&nbsp;0.25).</p>
+      </div>
+    </div>
+
+    <div style="margin-top:2rem">
+      <h3 style="font-size:1.18rem">Released Hugging Face Checkpoints</h3>
+      <div class="ckpt-grid">
+        <a class="ckpt-item" href="https://huggingface.co/Xalphinions/ouro-2.6b-late-entry" target="_blank" rel="noopener">
+          <code>Xalphinions/ouro-2.6b-late-entry</code>
+          <span>Main purely looped Ouro-2.6B (T = 4, 48 layers) late-entry &amp; Wake model</span>
+        </a>
+        <a class="ckpt-item" href="https://huggingface.co/Xalphinions/huginn-3.5b-late-entry" target="_blank" rel="noopener">
+          <code>Xalphinions/huginn-3.5b-late-entry</code>
+          <span>Main Prelude-Core-Coda Huginn-3.5B (T &isin; {8..64}) late-entry &amp; Wake model</span>
+        </a>
+        <a class="ckpt-item" href="https://huggingface.co/Xalphinions/ouro-1.4b-late-entry" target="_blank" rel="noopener">
+          <code>Xalphinions/ouro-1.4b-late-entry</code>
+          <span>Scale-replication Ouro-1.4B (T = 4, 24 layers) late-entry checkpoint</span>
+        </a>
+        <a class="ckpt-item" href="https://huggingface.co/Xalphinions/ouro-2.6b-early-exit" target="_blank" rel="noopener">
+          <code>Xalphinions/ouro-2.6b-early-exit</code>
+          <span>Matched Stage-2 early-exit control for Ouro-2.6B (+ Huginn control in collection)</span>
+        </a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ==================== CITATION ==================== -->
+<section class="sec" id="citation" style="border-bottom:0">
+  <div class="wrap" style="max-width:52rem">
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:1rem;flex-wrap:wrap">
+      <div>
+        <p class="eyebrow" style="margin-bottom:.3rem">Citation</p>
+        <h2 style="font-size:1.65rem">BibTeX</h2>
+      </div>
+      <button type="button" class="ctrl-btn" id="copyBibBtn">Copy BibTeX</button>
+    </div>
+<pre class="bib-box"><code id="bibCode">@article{jin2026lateentry,
+  title   = {Late Entry in Looped Language Models},
+  author  = {Jin, Ziqi and Li, Jiaxi and Xu, Weiwen and Sun, Aixin},
+  journal = {arXiv preprint},
+  year    = {2026},
+  url     = {https://xalp.net/late-entry/}
+}</code></pre>
+  </div>
+</section>
+
+<footer class="wide">
+  <div style="border-top:1px solid var(--line);padding-top:1.5rem;display:flex;flex-wrap:wrap;justify-content:space-between;gap:.8rem">
+    <p>Evaluated on Ouro-1.4B / Ouro-2.6B (Zhu et al., 2025) and Huginn-3.5B (Geiping et al., 2025) on NVIDIA H100 80GB GPUs.</p>
+    <p>&copy; 2026 Ziqi Jin, Jiaxi Li, Weiwen Xu, and Aixin Sun.</p>
+  </div>
+</footer>
+
+<script>
+(function() {
+  /* ---- 1. Light / Dark Theme Toggle ---- */
+  var root = document.documentElement;
+  var tBtn = document.getElementById("themeToggle");
+  var tIcon = document.getElementById("themeIcon");
+  var tLbl = document.getElementById("themeLabel");
+  var saved = null;
+  try { saved = localStorage.getItem("theme"); } catch (e) {}
+  if (saved === "dark" || (!saved && window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches)) {
+    root.setAttribute("data-theme", "dark");
+  }
+  function syncThemeUI() {
+    var dark = root.getAttribute("data-theme") === "dark";
+    tIcon.innerHTML = dark ? "&#9728;" : "&#9789;";
+    tLbl.textContent = dark ? "Light" : "Dark";
+  }
+  syncThemeUI();
+  tBtn.addEventListener("click", function() {
+    var next = root.getAttribute("data-theme") === "dark" ? "light" : "dark";
+    root.setAttribute("data-theme", next);
+    try { localStorage.setItem("theme", next); } catch (e) {}
+    syncThemeUI();
+  });
+
+  /* ---- 2. Hero 3-Paradigm Synchronized Pass Pulse ---- */
+  var hpTick = 0;
+  function stepHeroPulse() {
+    var phase = hpTick % 4; // 0, 1, 2, 3
+    // Full depth: lights P1 -> P2 -> P3 -> P4 one call at a time
+    ["hf1", "hf2", "hf3", "hf4"].forEach(function(id, idx) {
+      var el = document.getElementById(id);
+      if (!el) return;
+      if (idx === phase) {
+        el.setAttribute("fill", "var(--indigo)");
+        el.setAttribute("stroke", "var(--indigo)");
+      } else if (idx < phase) {
+        el.setAttribute("fill", "var(--indigo-soft)");
+        el.setAttribute("stroke", "var(--indigo-border)");
+      } else {
+        el.setAttribute("fill", "var(--bg-subtle)");
+        el.setAttribute("stroke", "var(--line-strong)");
+      }
+    });
+    // Early exit: runs P1, P2 in 2 calls
+    var eSub = phase % 2;
+    ["he1", "he2"].forEach(function(id, idx) {
+      var el = document.getElementById(id);
+      if (!el) return;
+      if (idx === eSub) {
+        el.setAttribute("fill", "var(--amber)");
+        el.setAttribute("stroke", "var(--amber)");
+      } else if (idx < eSub) {
+        el.setAttribute("fill", "var(--amber-soft)");
+        el.setAttribute("stroke", "var(--amber-border)");
+      } else {
+        el.setAttribute("fill", "var(--bg-subtle)");
+        el.setAttribute("stroke", "var(--line-strong)");
+      }
+    });
+    // Ours: 2 calls per step! eSub === 0 -> Call 1 (block P3 + wake1 P1 + wake2 P3); eSub === 1 -> Call 2 (block P4 + wake1 P2 + wake2 P4 + GEMM!)
+    var hl3 = document.getElementById("hl3"), hl4 = document.getElementById("hl4");
+    var hw1_1 = document.getElementById("hw1_1"), hw1_2 = document.getElementById("hw1_2");
+    var hw2_3 = document.getElementById("hw2_3"), hw2_4 = document.getElementById("hw2_4");
+    var bOurs = document.getElementById("hpBadgeOurs");
+    if (eSub === 0) {
+      hl3.setAttribute("fill", "var(--indigo)"); hl3.setAttribute("stroke", "var(--indigo)");
+      hl4.setAttribute("fill", "var(--bg-subtle)"); hl4.setAttribute("stroke", "var(--line-strong)");
+      hw1_1.setAttribute("fill", "var(--emerald)"); hw1_1.setAttribute("stroke", "var(--emerald)");
+      hw1_2.setAttribute("fill", "var(--bg-subtle)"); hw1_2.setAttribute("stroke", "var(--line-strong)");
+      hw2_3.setAttribute("fill", "var(--emerald)"); hw2_3.setAttribute("stroke", "var(--emerald)");
+      hw2_4.setAttribute("fill", "var(--amber-soft)"); hw2_4.setAttribute("stroke", "var(--amber)");
+      if (bOurs) bOurs.textContent = "Call 1/2: P3 + Wake P1/P3";
+    } else {
+      hl3.setAttribute("fill", "var(--indigo-soft)"); hl3.setAttribute("stroke", "var(--indigo-border)");
+      hl4.setAttribute("fill", "var(--indigo)"); hl4.setAttribute("stroke", "var(--indigo)");
+      hw1_1.setAttribute("fill", "var(--emerald-soft)"); hw1_1.setAttribute("stroke", "var(--emerald)");
+      hw1_2.setAttribute("fill", "var(--emerald)"); hw1_2.setAttribute("stroke", "var(--emerald)");
+      hw2_3.setAttribute("fill", "var(--emerald-soft)"); hw2_3.setAttribute("stroke", "var(--emerald)");
+      hw2_4.setAttribute("fill", "var(--emerald)"); hw2_4.setAttribute("stroke", "var(--emerald)");
+      if (bOurs) bOurs.textContent = "Call 2/2: P4 + GEMM Verified ✓";
+    }
+    hpTick++;
+  }
+  var reduceMotion = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  stepHeroPulse();
+  if (!reduceMotion) { setInterval(stepHeroPulse, 950); }
+
+  /* ---- 3. Centerpiece Interactive CUDA-Graph & Wake Studio ---- */
+  // Matrix slot states: "" (empty), "exact" (P1..P4 verified), "prov" (provisional P3*/P4*), "wake" (just computed in wake), "crit" (active P3/P4), "rb" (rolled back)
+  function buildScenarioSteps(scen, tau) {
+    var tauNum = tau === "inf" ? Infinity : parseFloat(tau);
+    var regimeName = tau === "0" ? "Greedy-Exact (τ=0)" : (tau === "0.25" ? "Margin Wake (τ=.25)" : "Lossy Late (τ=∞)");
+
+    if (scen === "slip") {
+      var rollsBack = 2.40 > tauNum;
+      return [
+        {
+          short: "Tentative Entry",
+          title: "Step 1 · Late-Pass Block Entry (P3 → P4 Only)",
+          body: "Over permanently verified prefix \"2 + 3\" (< u), the (1+B)² candidate block skips passes P1–P2 and runs only P3–P4 (2 serial calls). It tentatively accepts Group A = [\"=\", \"6\"] (where querying on u = \"=\" without P1–P2 slipped: ŷ = \"6\" instead of \"5\"), writes provisional P3*, P4* KV so Step 2 never stalls, and enqueues Group A into the wake.",
+          tape: [
+            {t: "2", cls: "ver"}, {t: "+", cls: "ver"}, {t: "3", cls: "ver", sub: "<u"},
+            {t: "\"=\"", cls: "tent", sub: "u"}, {t: "\"6\"", cls: "tent", sub: "ŷ"},
+            {t: "\".\"", cls: "cand", sub: "draft"}, {t: "\" The\"", cls: "cand", sub: "draft"}
+          ],
+          cols: [
+            {lbl: "2", s: ["exact","exact","exact","exact"]},
+            {lbl: "+", s: ["exact","exact","exact","exact"]},
+            {lbl: "3", s: ["exact","exact","exact","exact"]},
+            {lbl: "\"=\"", s: ["","","crit","crit"]},
+            {lbl: "\"6\"", s: ["","","crit","crit"]},
+            {lbl: ".", s: ["","","",""]},
+            {lbl: "The", s: ["","","",""]},
+            {lbl: "ans", s: ["","","",""]}
+          ],
+          batch: {front: 81, w1: 0, w2: 0, callTxt: "Call 1: Block P3 · Call 2: Block P4"},
+          gemm: {cls: "", rows: "81 rows", eq: "Group A just entered wake (0/4 causal passes).", verdict: "Wake warming up (0 extra calls)", vcls: "idle"},
+          verCnt: "3 toks"
+        },
+        {
+          short: "Advance + Wake P1–P2",
+          title: "Step 2 · Frontier Advances While Group A Runs Exact P1 → P2",
+          body: "Zero stalling: inside Step 2's two forward calls (83 total rows ≪ 348 H100 ridge), active block rows run P3–P4 over Group A's provisional P3*, P4* to tentatively emit Group B = [\".\", \" The\"], while Group A [\"=\", \"6\"] piggybacks on the exact same calls to compute true causal P1 and P2.",
+          tape: [
+            {t: "2", cls: "ver"}, {t: "+", cls: "ver"}, {t: "3", cls: "ver"},
+            {t: "\"=\"", cls: "tent", sub: "P1–2"}, {t: "\"6\"", cls: "tent", sub: "P1–2"},
+            {t: "\".\"", cls: "tent", sub: "Grp B"}, {t: "\" The\"", cls: "tent", sub: "Grp B"},
+            {t: "\" ans\"", cls: "cand", sub: "draft"}
+          ],
+          cols: [
+            {lbl: "2", s: ["exact","exact","exact","exact"]},
+            {lbl: "+", s: ["exact","exact","exact","exact"]},
+            {lbl: "3", s: ["exact","exact","exact","exact"]},
+            {lbl: "\"=\"", s: ["wake","wake","prov","prov"]},
+            {lbl: "\"6\"", s: ["wake","wake","prov","prov"]},
+            {lbl: "\".\"", s: ["","","crit","crit"]},
+            {lbl: "The", s: ["","","crit","crit"]},
+            {lbl: "ans", s: ["","","",""]}
+          ],
+          batch: {front: 81, w1: 2, w2: 0, callTxt: "Call 1: Block P3 + GrpA P1 · Call 2: Block P4 + GrpA P2"},
+          gemm: {cls: "", rows: "81 rows", eq: "Group A has completed P1, P2 (2/4 passes); P3, P4 finish next step.", verdict: "0 extra serial layer calls", vcls: "idle"},
+          verCnt: "3 toks"
+        },
+        {
+          short: "Same-GEMM Check",
+          title: "Step 3 · Group A Finishes P3 → P4 & Projects in Shared lm_head GEMM",
+          body: "Group A finishes exact P3–P4 (overwriting provisional P3*, P4* on \"=\") while Group B runs P1–P2 and the frontier emits [\" ans\", \"wer\"]. Projecting Group A's finished P4 states inside the same single lm_head GEMM reveals exact 4-pass prediction y* = \"5\" ≠ tentative ŷ = \"6\" on position u = \"=\" with logit margin Δz = 2.40!",
+          tape: [
+            {t: "2", cls: "ver"}, {t: "+", cls: "ver"}, {t: "3", cls: "ver"},
+            {t: "\"=\"", cls: "ver", sub: "P1–4✓"}, {t: "\"6\"", cls: rollsBack ? "rb" : "tent", sub: "ŷ≠5"},
+            {t: "\".\"", cls: "tent"}, {t: "\" The\"", cls: "tent"}, {t: "\" ans\"", cls: "tent"}
+          ],
+          cols: [
+            {lbl: "2", s: ["exact","exact","exact","exact"]},
+            {lbl: "+", s: ["exact","exact","exact","exact"]},
+            {lbl: "3", s: ["exact","exact","exact","exact"]},
+            {lbl: "\"=\"", s: ["exact","exact","wake","wake"]},
+            {lbl: "\"6\"", s: ["exact","exact","wake","wake"]},
+            {lbl: "\".\"", s: ["wake","wake","prov","prov"]},
+            {lbl: "The", s: ["wake","wake","prov","prov"]},
+            {lbl: "ans", s: ["","","crit","crit"]}
+          ],
+          batch: {front: 81, w1: 2, w2: 2, callTxt: "Call 1: Block P3 + B:P1 + A:P3 · Call 2: Block P4 + B:P2 + A:P4"},
+          gemm: rollsBack
+            ? {cls: "alert", rows: "81 + 2 = 83 rows", eq: "On pos u = \"=\": exact y* = \"5\" vs. ŷ = \"6\" · Δz = 2.40 > τ (" + tau + ")", verdict: "Δz > τ → ROLLBACK BEYOND u & COMMIT \"5\"", vcls: "alert"}
+            : {cls: "tolerated", rows: "81 + 2 = 83 rows", eq: "On pos u = \"=\": Δz = 2.40 ≤ τ = ∞ (non-rollback lossy mode)", verdict: "τ = ∞ → KEEP TENTATIVE FRONTIER (NO ROLLBACK)", vcls: "tolerated"},
+          verCnt: "4 toks"
+        },
+        rollsBack ? {
+          short: "Truncate & Fix \"5\"",
+          title: "Step 3b · Instant Rollback Advances Verified Prefix to \"2 + 3 = 5\"",
+          body: "Because \"=\" at position u already wrote its exact P1–P4 KV cache in the wake, Wake simply truncates the tentative tail [\"6\", \".\", \" The\", \" ans\"] beyond u, commits exact token y* = \"5\" at u + 1 (strictly advancing verified progress u → u + 1, ruling out livelock), and resumes from anchor \"5\".",
+          tape: [
+            {t: "2", cls: "ver"}, {t: "+", cls: "ver"}, {t: "3", cls: "ver"},
+            {t: "\"=\"", cls: "ver", sub: "exact KV"}, {t: "\"5\"", cls: "fix", sub: "y* fixed!"},
+            {t: "\"6\"", cls: "rb"}, {t: "\".\"", cls: "rb"}, {t: "\" The\"", cls: "rb"}
+          ],
+          cols: [
+            {lbl: "2", s: ["exact","exact","exact","exact"]},
+            {lbl: "+", s: ["exact","exact","exact","exact"]},
+            {lbl: "3", s: ["exact","exact","exact","exact"]},
+            {lbl: "\"=\"", s: ["exact","exact","exact","exact"]},
+            {lbl: "\"5\"", s: ["","","prov","prov"]},
+            {lbl: "6 (cut)", s: ["rb","rb","rb","rb"]},
+            {lbl: ". (cut)", s: ["rb","rb","rb","rb"]},
+            {lbl: "The", s: ["","","",""]}
+          ],
+          batch: {front: 81, w1: 0, w2: 0, callTxt: "Pointer reset to u + 1; exact KV ≤ u preserved"},
+          gemm: {cls: "ok", rows: "0 extra calls", eq: "Prefix \"2 + 3 =\" is permanently T-pass exact; anchor \"5\" ready.", verdict: "✓ Strict prefix progress: u → u + 1", vcls: "ok"},
+          verCnt: "4 + anchor \"5\""
+        } : {
+          short: "Keep Racing (τ=∞)",
+          title: "Step 3b · Non-Rollback Lossy Mode (τ = ∞) Keeps Full Momentum",
+          body: "With τ = ∞, Wake never rolls back: \"6\" stays committed and decoding races ahead at peak throughput (6.82× on Ouro-2.6B, up to 12.50× on Huginn-3.5B), trading bounded accuracy on uncertain arithmetic steps for maximum speed.",
+          tape: [
+            {t: "2", cls: "ver"}, {t: "+", cls: "ver"}, {t: "3", cls: "ver"},
+            {t: "\"=\"", cls: "ver"}, {t: "\"6\"", cls: "ver", sub: "kept"},
+            {t: "\".\"", cls: "ver"}, {t: "\" The\"", cls: "ver"}, {t: "\" ans\"", cls: "tent"}
+          ],
+          cols: [
+            {lbl: "2", s: ["exact","exact","exact","exact"]},
+            {lbl: "+", s: ["exact","exact","exact","exact"]},
+            {lbl: "3", s: ["exact","exact","exact","exact"]},
+            {lbl: "\"=\"", s: ["exact","exact","exact","exact"]},
+            {lbl: "\"6\"", s: ["exact","exact","exact","exact"]},
+            {lbl: "\".\"", s: ["exact","exact","wake","wake"]},
+            {lbl: "The", s: ["exact","exact","wake","wake"]},
+            {lbl: "ans", s: ["wake","wake","prov","prov"]}
+          ],
+          batch: {front: 81, w1: 2, w2: 2, callTxt: "Continuous 2-call pipeline · 0 rollbacks"},
+          gemm: {cls: "tolerated", rows: "81 rows", eq: "τ = ∞ bypasses rollback check for maximum tok/s.", verdict: "Peak lossy throughput (6.82× / 12.50×)", vcls: "tolerated"},
+          verCnt: "7 toks (lossy)"
+        },
+        {
+          short: "Verified Cruise",
+          title: "Step 4 · Smooth Cruise Over Confident Tokens (>98% Match Rate)",
+          body: rollsBack
+            ? "Resuming from corrected \"5\", subsequent tokens [\".\", \" The\", \" ans\"] lie in the confident regime where K = 2 agrees at 100%: two steps later, Wake verifies y* == ŷ on every position (Δz = 0.00) and promotes them into the permanently verified T-pass prefix with zero rollbacks!"
+            : "Across the rest of the sequence, confident tokens continue completing their 4-pass KV caches in the background wake at 2 serial calls per step.",
+          tape: rollsBack ? [
+            {t: "2", cls: "ver"}, {t: "+", cls: "ver"}, {t: "3", cls: "ver"},
+            {t: "\"=\"", cls: "ver"}, {t: "\"5\"", cls: "ver", sub: "✓"},
+            {t: "\".\"", cls: "ver", sub: "✓"}, {t: "\" The\"", cls: "ver", sub: "✓"},
+            {t: "\" ans\"", cls: "tent", sub: "wake"}
+          ] : [
+            {t: "2", cls: "ver"}, {t: "+", cls: "ver"}, {t: "3", cls: "ver"},
+            {t: "\"=\"", cls: "ver"}, {t: "\"6\"", cls: "ver"},
+            {t: "\".\"", cls: "ver"}, {t: "\" The\"", cls: "ver"}, {t: "\" ans\"", cls: "ver"}
+          ],
+          cols: [
+            {lbl: "2", s: ["exact","exact","exact","exact"]},
+            {lbl: "+", s: ["exact","exact","exact","exact"]},
+            {lbl: "3", s: ["exact","exact","exact","exact"]},
+            {lbl: "\"=\"", s: ["exact","exact","exact","exact"]},
+            {lbl: rollsBack ? "\"5\"" : "\"6\"", s: ["exact","exact","exact","exact"]},
+            {lbl: "\".\"", s: ["exact","exact","wake","wake"]},
+            {lbl: "The", s: ["exact","exact","wake","wake"]},
+            {lbl: "ans", s: ["wake","wake","prov","prov"]}
+          ],
+          batch: {front: 81, w1: 2, w2: 2, callTxt: "Steady 2 serial calls/step · 5.20×–8.42× greedy-exact"},
+          gemm: {cls: "ok", rows: "81 + 3 = 84 rows", eq: "All wake positions match: y* == ŷ (Δz = 0.00 ≤ τ).", verdict: "✓ Zero rollback · Permanently verified!", vcls: "ok"},
+          verCnt: "7 toks"
+        }
+      ];
+    }
+
+    if (scen === "tie") {
+      var tieRolls = 0.12 > tauNum;
+      return [
+        {
+          short: "Near-Tie Token",
+          title: "Step 1 · Tentative Block Chooses \"Thus\" on a Near-Tie Transition",
+          body: "After verified prefix \"x = 5 .\", passes P3–P4 tentatively accept [\" Thus\", \",\"], whereas full 4-pass sequential decoding slightly prefers synonym \" Therefore\" by a tiny logit margin of Δz = 0.12 (a benign phrasing / bf16 near-tie).",
+          tape: [
+            {t: "x", cls: "ver"}, {t: "=", cls: "ver"}, {t: "5", cls: "ver"}, {t: ".", cls: "ver", sub: "u"},
+            {t: "\" Thus\"", cls: "tent", sub: "ŷ"}, {t: "\",\"", cls: "tent"},
+            {t: "\" we\"", cls: "cand", sub: "draft"}
+          ],
+          cols: [
+            {lbl: "x", s: ["exact","exact","exact","exact"]},
+            {lbl: "=", s: ["exact","exact","exact","exact"]},
+            {lbl: "5", s: ["exact","exact","exact","exact"]},
+            {lbl: ".", s: ["exact","exact","exact","exact"]},
+            {lbl: "Thus", s: ["","","crit","crit"]},
+            {lbl: ",", s: ["","","crit","crit"]},
+            {lbl: "we", s: ["","","",""]},
+            {lbl: "get", s: ["","","",""]}
+          ],
+          batch: {front: 81, w1: 0, w2: 0, callTxt: "Call 1: Block P3 · Call 2: Block P4"},
+          gemm: {cls: "", rows: "81 rows", eq: "Group [\" Thus\", \",\"] enqueued into 2-step wake.", verdict: "Wake Stage 0/2", vcls: "idle"},
+          verCnt: "4 toks"
+        },
+        {
+          short: "Wake P1–P2",
+          title: "Step 2 · Frontier Emits [\" we\", \" get\"] While \"Thus\" Runs P1 → P2",
+          body: "The frontier advances with [\" we\", \" get\"] at 2 serial calls while [\" Thus\", \",\"] computes exact P1–P2 in the same batch.",
+          tape: [
+            {t: "x", cls: "ver"}, {t: "=", cls: "ver"}, {t: "5", cls: "ver"}, {t: ".", cls: "ver"},
+            {t: "\" Thus\"", cls: "tent", sub: "P1–2"}, {t: "\",\"", cls: "tent", sub: "P1–2"},
+            {t: "\" we\"", cls: "tent"}, {t: "\" get\"", cls: "tent"}
+          ],
+          cols: [
+            {lbl: "x", s: ["exact","exact","exact","exact"]},
+            {lbl: "=", s: ["exact","exact","exact","exact"]},
+            {lbl: "5", s: ["exact","exact","exact","exact"]},
+            {lbl: ".", s: ["exact","exact","exact","exact"]},
+            {lbl: "Thus", s: ["wake","wake","prov","prov"]},
+            {lbl: ",", s: ["wake","wake","prov","prov"]},
+            {lbl: "we", s: ["","","crit","crit"]},
+            {lbl: "get", s: ["","","crit","crit"]}
+          ],
+          batch: {front: 81, w1: 2, w2: 0, callTxt: "Call 1: Block P3 + Wake P1 · Call 2: Block P4 + Wake P2"},
+          gemm: {cls: "", rows: "81 rows", eq: "Wake Stage 1/2 complete; P3–P4 projection next step.", verdict: "0 extra serial calls", vcls: "idle"},
+          verCnt: "4 toks"
+        },
+        {
+          short: "Margin Check Δz=0.12",
+          title: tieRolls
+            ? "Step 3 (τ = 0) · Strict Greedy-Exact Rolls Back Even Tiny Δz = 0.12"
+            : "Step 3 (τ ≥ 0.25) · Margin Wake Filters Benign Tie (Δz = 0.12 ≤ τ)!",
+          body: tieRolls
+            ? "At τ = 0, any argmax difference triggers rollback (Δz = 0.12 > 0): Wake replaces \" Thus\" with \" Therefore\" for strict T-pass greedy equivalence. Switch τ to 0.25 above to see Margin Wake skip this benign rollback!"
+            : "Because Δz = 0.12 ≤ τ (" + tau + "), Margin Wake recognizes a harmless near-tie and accepts \" Thus\" WITH EXACT 4-PASS KV CACHES and ZERO ROLLBACK, cutting rollbacks 2× to 16× to reach 5.52–5.83× on Ouro math and 7.15–8.93× on Huginn while still catching real errors like Δz = 2.40!",
+          tape: tieRolls ? [
+            {t: "x", cls: "ver"}, {t: "=", cls: "ver"}, {t: "5", cls: "ver"}, {t: ".", cls: "ver"},
+            {t: "\" Therefore\"", cls: "fix", sub: "τ=0 exact"},
+            {t: "\" Thus\"", cls: "rb"}, {t: "\",\"", cls: "rb"}, {t: "\" we\"", cls: "rb"}
+          ] : [
+            {t: "x", cls: "ver"}, {t: "=", cls: "ver"}, {t: "5", cls: "ver"}, {t: ".", cls: "ver"},
+            {t: "\" Thus\"", cls: "ver", sub: "Δz=.12≤τ ✓"}, {t: "\",\"", cls: "ver", sub: "✓"},
+            {t: "\" we\"", cls: "tent"}, {t: "\" get\"", cls: "tent"}
+          ],
+          cols: tieRolls ? [
+            {lbl: "x", s: ["exact","exact","exact","exact"]},
+            {lbl: "=", s: ["exact","exact","exact","exact"]},
+            {lbl: "5", s: ["exact","exact","exact","exact"]},
+            {lbl: ".", s: ["exact","exact","exact","exact"]},
+            {lbl: "Theref.", s: ["","","prov","prov"]},
+            {lbl: "Thus", s: ["rb","rb","rb","rb"]},
+            {lbl: ",", s: ["rb","rb","rb","rb"]},
+            {lbl: "we", s: ["rb","rb","rb","rb"]}
+          ] : [
+            {lbl: "x", s: ["exact","exact","exact","exact"]},
+            {lbl: "=", s: ["exact","exact","exact","exact"]},
+            {lbl: "5", s: ["exact","exact","exact","exact"]},
+            {lbl: ".", s: ["exact","exact","exact","exact"]},
+            {lbl: "Thus", s: ["exact","exact","wake","wake"]},
+            {lbl: ",", s: ["exact","exact","wake","wake"]},
+            {lbl: "we", s: ["wake","wake","prov","prov"]},
+            {lbl: "get", s: ["wake","wake","prov","prov"]}
+          ],
+          batch: {front: 81, w1: 2, w2: 2, callTxt: "Shared lm_head GEMM checks Δz = 0.12 against τ = " + tau},
+          gemm: tieRolls
+            ? {cls: "alert", rows: "83 rows", eq: "y* = \" Therefore\" vs. ŷ = \" Thus\" · Δz = 0.12 > τ = 0", verdict: "τ = 0 → Strict greedy-exact rollback", vcls: "alert"}
+            : {cls: "ok", rows: "83 rows", eq: "y* = \" Therefore\" vs. ŷ = \" Thus\" · Δz = 0.12 ≤ τ (" + tau + ")", verdict: "✓ Benign tie accepted · 0 rollback · exact KV kept!", vcls: "ok"},
+          verCnt: tieRolls ? "4 + \"Therefore\"" : "6 toks"
+        }
+      ];
+    }
+
+    // scen === "cruise"
+    return [
+      {
+        short: "Diagonal Conveyor 1",
+        title: "Steady State (1/3) · Three Token Groups Ride One 2-Call Pipeline",
+        body: "On >98% of positions (and 99.4% at Huginn T = 64), tentative K-pass predictions already match full depth. Watch the diagonal wake wave advance left-to-right across Steps t, t+1, t+2 with zero rollbacks.",
+        tape: [
+          {t: "The", cls: "ver"}, {t: "sum", cls: "ver"},
+          {t: "is", cls: "ver", sub: "GEMM ✓"}, {t: "12", cls: "ver", sub: "GEMM ✓"},
+          {t: "and", cls: "tent", sub: "P1–2"}, {t: "its", cls: "tent", sub: "P1–2"},
+          {t: "half", cls: "cand", sub: "P3–4"}, {t: "is", cls: "cand", sub: "P3–4"}
+        ],
+        cols: [
+          {lbl: "The", s: ["exact","exact","exact","exact"]},
+          {lbl: "sum", s: ["exact","exact","exact","exact"]},
+          {lbl: "is", s: ["exact","exact","wake","wake"]},
+          {lbl: "12", s: ["exact","exact","wake","wake"]},
+          {lbl: "and", s: ["wake","wake","prov","prov"]},
+          {lbl: "its", s: ["wake","wake","prov","prov"]},
+          {lbl: "half", s: ["","","crit","crit"]},
+          {lbl: "is", s: ["","","crit","crit"]}
+        ],
+        batch: {front: 81, w1: 4, w2: 4, callTxt: "89 / 348 rows: 81 block + 4 Wake-1 + 4 Wake-2"},
+        gemm: {cls: "ok", rows: "85 rows", eq: "Group [\"is\", \"12\"]: y* == ŷ on all tokens (Δz = 0.00).", verdict: "✓ Promoted to permanently verified prefix", vcls: "ok"},
+        verCnt: "4 toks"
+      },
+      {
+        short: "Diagonal Conveyor 2",
+        title: "Steady State (2/3) · [\"and\", \"its\"] Completes P3 → P4 & Verifies",
+        body: "One step later, [\"and\", \"its\"] finishes P3–P4 and passes the shared lm_head GEMM check, [\"half\", \"is\"] completes exact P1–P2, and the frontier emits [\"6\", \".\"] in 2 serial calls.",
+        tape: [
+          {t: "The", cls: "ver"}, {t: "sum", cls: "ver"}, {t: "is", cls: "ver"}, {t: "12", cls: "ver"},
+          {t: "and", cls: "ver", sub: "GEMM ✓"}, {t: "its", cls: "ver", sub: "GEMM ✓"},
+          {t: "half", cls: "tent", sub: "P1–2"}, {t: "is", cls: "tent", sub: "P1–2"},
+          {t: "6", cls: "cand", sub: "P3–4"}, {t: ".", cls: "cand", sub: "P3–4"}
+        ],
+        cols: [
+          {lbl: "is", s: ["exact","exact","exact","exact"]},
+          {lbl: "12", s: ["exact","exact","exact","exact"]},
+          {lbl: "and", s: ["exact","exact","wake","wake"]},
+          {lbl: "its", s: ["exact","exact","wake","wake"]},
+          {lbl: "half", s: ["wake","wake","prov","prov"]},
+          {lbl: "is", s: ["wake","wake","prov","prov"]},
+          {lbl: "6", s: ["","","crit","crit"]},
+          {lbl: ".", s: ["","","crit","crit"]}
+        ],
+        batch: {front: 81, w1: 4, w2: 4, callTxt: "89 / 348 rows: deep inside H100 HBM plateau"},
+        gemm: {cls: "ok", rows: "85 rows", eq: "Group [\"and\", \"its\"]: y* == ŷ on all tokens (Δz = 0.00).", verdict: "✓ Zero rollback · Full T-pass exactness", vcls: "ok"},
+        verCnt: "6 toks"
+      },
+      {
+        short: "EOS Wake Drain",
+        title: "Steady State (3/3) · EOS Wake Drain Verifies Final Groups Cleanly",
+        body: "When the frontier emits <eos>, ≤ ⌈T/K⌉ = 2 lightweight wake-drain steps verify [\"half\", \"is\", \"6\", \".\"] and <eos> itself, completing a bit-for-bit greedy-exact T-pass sequence at 5.20× (Ouro) to 8.42× (Huginn T = 64).",
+        tape: [
+          {t: "The", cls: "ver"}, {t: "sum", cls: "ver"}, {t: "is", cls: "ver"}, {t: "12", cls: "ver"},
+          {t: "and", cls: "ver"}, {t: "its", cls: "ver"},
+          {t: "half", cls: "ver", sub: "✓"}, {t: "is", cls: "ver", sub: "✓"},
+          {t: "6", cls: "ver", sub: "✓"}, {t: ".", cls: "ver", sub: "EOS ✓"}
+        ],
+        cols: [
+          {lbl: "is", s: ["exact","exact","exact","exact"]},
+          {lbl: "12", s: ["exact","exact","exact","exact"]},
+          {lbl: "and", s: ["exact","exact","exact","exact"]},
+          {lbl: "its", s: ["exact","exact","exact","exact"]},
+          {lbl: "half", s: ["exact","exact","exact","exact"]},
+          {lbl: "is", s: ["exact","exact","exact","exact"]},
+          {lbl: "6", s: ["exact","exact","wake","wake"]},
+          {lbl: ".", s: ["exact","exact","wake","wake"]}
+        ],
+        batch: {front: 0, w1: 0, w2: 4, callTxt: "Final wake-drain step verifies <eos> cleanly"},
+        gemm: {cls: "ok", rows: "4 rows", eq: "100% of sequence verified through exact passes 1 → T.", verdict: "✓ Complete greedy-exact T-pass sequence", vcls: "ok"},
+        verCnt: "10 / 10 toks"
+      }
+    ];
+  }
+
+  var curScen = "slip";
+  var curTau = "0";
+  var curIdx = 0;
+  var playing = !reduceMotion;
+  var stepDurationMs = 3400;
+  var lastTickTs = performance.now();
+  var elapsedInStep = 0;
+
+  var tapeEl = document.getElementById("stTape");
+  var matEl = document.getElementById("stMatrix");
+  var pillsEl = document.getElementById("stStepPills");
+  var playBtn = document.getElementById("stPlayBtn");
+
+  function renderStudio() {
+    var steps = buildScenarioSteps(curScen, curTau);
+    if (curIdx >= steps.length) curIdx = 0;
+    var st = steps[curIdx];
+
+    // Stepper pills
+    pillsEl.innerHTML = "";
+    steps.forEach(function(item, i) {
+      var b = document.createElement("button");
+      b.type = "button";
+      b.className = "step-pill" + (i === curIdx ? " active" : "");
+      b.innerHTML = '<span class="sp-num">Phase ' + (i + 1) + '/' + steps.length + '</span><span class="sp-txt">' + item.short + '</span>' +
+        (i === curIdx ? '<span class="step-prog" id="activeStepProg"></span>' : '');
+      b.addEventListener("click", function() {
+        curIdx = i;
+        elapsedInStep = 0;
+        renderStudio();
+      });
+      pillsEl.appendChild(b);
+    });
+
+    // Token tape
+    tapeEl.innerHTML = "";
+    st.tape.forEach(function(tk) {
+      var sp = document.createElement("span");
+      sp.className = "tok-pill " + tk.cls;
+      sp.innerHTML = '<span>' + tk.t + '</span>' + (tk.sub ? '<span class="t-sub">' + tk.sub + '</span>' : '');
+      tapeEl.appendChild(sp);
+    });
+
+    // 4 x 8 KV Matrix (rows top-to-bottom: P4, P3, P2, P1)
+    matEl.innerHTML = "";
+    var passNames = [
+      {idx: 3, name: "Pass 4"},
+      {idx: 2, name: "Pass 3"},
+      {idx: 1, name: "Pass 2"},
+      {idx: 0, name: "Pass 1"}
+    ];
+    passNames.forEach(function(pn) {
+      var rl = document.createElement("div");
+      rl.className = "kv-row-lbl";
+      rl.textContent = pn.name;
+      matEl.appendChild(rl);
+      st.cols.forEach(function(col) {
+        var code = col.s[pn.idx];
+        var cell = document.createElement("div");
+        var cls = "kv-cell", txt = "·";
+        if (code === "exact") { cls += " exact"; txt = "P" + (pn.idx + 1); }
+        else if (code === "wake") { cls += " wake-now"; txt = "P" + (pn.idx + 1) + "✓"; }
+        else if (code === "prov") { cls += " prov"; txt = "P" + (pn.idx + 1) + "*"; }
+        else if (code === "crit") { cls += " crit-now"; txt = "P" + (pn.idx + 1) + "*"; }
+        else if (code === "rb") { cls += " rb-fade"; txt = "cut"; }
+        cell.className = cls;
+        cell.textContent = txt;
+        matEl.appendChild(cell);
+      });
+    });
+    var corner = document.createElement("div");
+    matEl.appendChild(corner);
+    st.cols.forEach(function(col) {
+      var cl = document.createElement("div");
+      cl.className = "kv-col-lbl";
+      cl.textContent = col.lbl;
+      matEl.appendChild(cl);
+    });
+
+    // GPU Batch Meter
+    var totRows = st.batch.front + st.batch.w1 + st.batch.w2;
+    document.getElementById("stBatchCount").textContent = totRows + " / 348 ridge rows";
+    document.getElementById("bmFront").style.width = (st.batch.front > 0 ? 48 : 0) + "%";
+    document.getElementById("bmFront").textContent = st.batch.front > 0 ? st.batch.front + " block" : "";
+    document.getElementById("bmW1").style.width = (st.batch.w1 > 0 ? 19 : 0) + "%";
+    document.getElementById("bmW1").textContent = st.batch.w1 > 0 ? "+" + st.batch.w1 + " W1" : "";
+    document.getElementById("bmW2").style.width = (st.batch.w2 > 0 ? 19 : 0) + "%";
+    document.getElementById("bmW2").textContent = st.batch.w2 > 0 ? "+" + st.batch.w2 + " W2" : "";
+    document.getElementById("stCallDesc").textContent = st.batch.callTxt;
+
+    // Shared GEMM Inspector
+    var gc = document.getElementById("stGemmCard");
+    gc.className = "gemm-card" + (st.gemm.cls ? " " + st.gemm.cls : "");
+    document.getElementById("stGemmRows").textContent = st.gemm.rows;
+    document.getElementById("stGemmEq").textContent = st.gemm.eq;
+    var gv = document.getElementById("stGemmVerdict");
+    gv.className = "gemm-verdict " + st.gemm.vcls;
+    gv.textContent = st.gemm.verdict;
+
+    // Narration & Telemetry
+    document.getElementById("stNarrTitle").textContent = st.title;
+    document.getElementById("stNarrBody").textContent = st.body;
+    document.getElementById("tlVer").textContent = st.verCnt;
+    document.getElementById("tlRegime").textContent = curTau === "0" ? "Greedy-Exact" : (curTau === "0.25" ? "Margin (τ=.25)" : "Lossy (τ=∞)");
+    playBtn.innerHTML = playing ? "&#10074;&#10074; Pause" : "&#9654; Play";
+  }
+
+  function tickLoop(now) {
+    var dt = now - lastTickTs;
+    lastTickTs = now;
+    if (playing) {
+      elapsedInStep += dt;
+      var prog = document.getElementById("activeStepProg");
+      if (prog) {
+        prog.style.width = Math.min(100, (elapsedInStep / stepDurationMs) * 100) + "%";
+      }
+      if (elapsedInStep >= stepDurationMs) {
+        elapsedInStep = 0;
+        var steps = buildScenarioSteps(curScen, curTau);
+        curIdx = (curIdx + 1) % steps.length;
+        renderStudio();
+      }
+    }
+    requestAnimationFrame(tickLoop);
+  }
+
+  document.querySelectorAll(".scen-btn").forEach(function(btn) {
+    btn.addEventListener("click", function() {
+      document.querySelectorAll(".scen-btn").forEach(function(x) { x.classList.remove("active"); });
+      btn.classList.add("active");
+      curScen = btn.getAttribute("data-scen");
+      curIdx = 0;
+      elapsedInStep = 0;
+      if (curScen === "tie" && curTau === "0") {
+        // Keep current tau so user can toggle, or let them see!
+      }
+      renderStudio();
+    });
+  });
+
+  document.querySelectorAll(".tau-btn").forEach(function(btn) {
+    btn.addEventListener("click", function() {
+      document.querySelectorAll(".tau-btn").forEach(function(x) { x.classList.remove("active"); });
+      btn.classList.add("active");
+      curTau = btn.getAttribute("data-tau");
+      elapsedInStep = 0;
+      renderStudio();
+    });
+  });
+
+  playBtn.addEventListener("click", function() {
+    playing = !playing;
+    lastTickTs = performance.now();
+    renderStudio();
+  });
+  document.getElementById("stPrevBtn").addEventListener("click", function() {
+    var steps = buildScenarioSteps(curScen, curTau);
+    curIdx = (curIdx - 1 + steps.length) % steps.length;
+    elapsedInStep = 0;
+    renderStudio();
+  });
+  document.getElementById("stNextBtn").addEventListener("click", function() {
+    var steps = buildScenarioSteps(curScen, curTau);
+    curIdx = (curIdx + 1) % steps.length;
+    elapsedInStep = 0;
+    renderStudio();
+  });
+
+  renderStudio();
+  requestAnimationFrame(tickLoop);
+
+  /* ---- 4. Wake Spectrum Model Filter ---- */
+  document.querySelectorAll(".ms-btn").forEach(function(btn) {
+    btn.addEventListener("click", function() {
+      document.querySelectorAll(".ms-btn").forEach(function(x) { x.classList.remove("active"); });
+      btn.classList.add("active");
+      var f = btn.getAttribute("data-wfilter");
+      document.querySelectorAll("#wakeTable tbody tr").forEach(function(row) {
+        var m = row.getAttribute("data-m");
+        row.style.display = (f === "all" || f === m) ? "" : "none";
+      });
+    });
+  });
+
+  /* ---- 5. Copy BibTeX ---- */
+  var cpBtn = document.getElementById("copyBibBtn");
+  var bibEl = document.getElementById("bibCode");
+  cpBtn.addEventListener("click", function() {
+    var txt = bibEl.textContent;
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(txt).then(function() {
+        cpBtn.textContent = "Copied!";
+        setTimeout(function() { cpBtn.textContent = "Copy BibTeX"; }, 1600);
+      });
+    }
+  });
+})();
+</script>
+</body>
+</html>
